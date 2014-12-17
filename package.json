@@ -1,0 +1,30 @@
+{
+  "name": "ast2template",
+  "version": "0.1.0",
+  "description": "convert an ast to a template function",
+  "main": "index.js",
+  "scripts": {
+    "test": "NODE_ENV=test ./node_modules/.bin/mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/camshaft/ast2template.git"
+  },
+  "author": "Cameron Bytheway <bytheway.cameron@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/camshaft/ast2template/issues"
+  },
+  "homepage": "https://github.com/camshaft/ast2template",
+  "dependencies": {
+    "acorn": "^0.10.0",
+    "escodegen": "^1.4.2",
+    "estraverse": "^1.9.0",
+    "minidom-tags": "^0.1.0",
+    "to-camel-case": "^0.2.1"
+  },
+  "devDependencies": {
+    "mocha": "^2.0.1",
+    "should": "^4.4.1"
+  }
+}
