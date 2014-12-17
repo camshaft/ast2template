@@ -5,8 +5,7 @@
 var acorn = require('acorn');
 var estraverse = require('estraverse');
 var escodegen = require('escodegen');
-var tags = require('minidom-tags').slice();
-tags.push('div');
+var tags = require('./lib/supported-tags');
 var createHash = require('crypto').createHash;
 var camel = require('to-camel-case');
 var eachFn = require('./lib/each');
@@ -49,7 +48,7 @@ Template.prototype.genSym = function(name) {
 };
 
 Template.prototype.tag = function(name) {
-  if (!~tags.indexOf(name)) return name;
+  if (!~tags.indexOf(name)) return JSON.stringify(name);
   if (this.usedTags[name]) return this.usedTags[name];
   return this.usedTags[name] = this.genSym(name);
 };
@@ -152,6 +151,7 @@ Template.prototype.expr = function(str) {
 
   var get = this.getVar;
   var noop = this.noopVar;
+  var nullVar = this.nullVar;
 
   function member(node, args) {
     var prop = node.property;
@@ -201,10 +201,17 @@ Template.prototype.expr = function(str) {
 
       if (conf.root) node.arguments.push(conf.root);
 
-      if (parent.type === 'CallExpression') node.arguments.push({
-        type: 'Identifier',
-        name: noop
-      });
+      if (parent.type === 'CallExpression' && parent.callee === node) {
+        if (node.arguments.length === 1) node.arguments.push({
+          type: 'Identifier',
+          name: nullVar
+        });
+
+        node.arguments.push({
+          type: 'Identifier',
+          name: noop
+        });
+      }
     }
   });
 
