@@ -48,6 +48,7 @@ Template.prototype.genSym = function(name) {
 };
 
 Template.prototype.tag = function(name) {
+  if (name.charAt(0).toUpperCase() === name.charAt(0)) return name;
   if (!~tags.indexOf(name)) return JSON.stringify(name);
   if (this.usedTags[name]) return this.usedTags[name];
   return this.usedTags[name] = this.genSym(name);
