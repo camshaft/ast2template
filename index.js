@@ -11,6 +11,8 @@ var camel = require('to-camel-case');
 var eachFn = require('./lib/each');
 var supportedProps = require('./lib/supported-props');
 
+var KEY_PROP = '__ast2template_key_prop';
+
 module.exports = function(ast, opts) {
   var template = new Template(ast, opts);
   return template.toString();
@@ -20,6 +22,7 @@ function Template(ast, opts) {
   if (!(this instanceof Template)) return new Template(ast, opts);
   this.ast = ast;
   this.opts = opts || {};
+  if (typeof this.opts.keyName === 'undefined') this.opts.keyName = 'key';
 }
 
 Template.prototype.push = function(str, indent) {
@@ -34,7 +37,7 @@ Template.prototype.indent = function(num) {
 Template.prototype.indentString = function(str, indent) {
   var ws = '\n';
   for (var i = 0; i < indent; i++) {
-    ws += '  ';
+    ws += this.opts.indent || '  ';
   }
   return str.replace(/\n/g, ws);
 };
@@ -65,6 +68,7 @@ Template.prototype.prependUsedTags = function() {
 };
 
 Template.prototype.mapProp = function(key) {
+  if (key === KEY_PROP) return this.opts.keyName;
   if (key.indexOf('data-') === 0 || key.indexOf('aria-') === 0) return key;
   if (key === 'class') return 'className';
   if (key === 'for') return 'htmlFor';
@@ -88,7 +92,7 @@ Template.prototype.toString = function() {
   var commonJS = this.opts.isCommonJS !== false ? 'module.exports = ' : '';
   var name = this.opts.name || '';
 
-  this.push(eachFn.str + '\n\n');
+  this.pushEach();
   this.push('var ' + nullVar + ' = null;\n\n');
   this.push('function ' + noop + '(){}\n\n');
   this.push(commonJS + 'function ' + name + '(' + dom + ', ' + get + ', ' + yieldVar + ', props, state, params, t) {\n');
@@ -104,6 +108,13 @@ Template.prototype.toString = function() {
   var out = this.buffer;
   delete this.buffer;
   return out;
+};
+
+Template.prototype.pushEach = function() {
+  var str = this.opts.isCommonJS !== false ?
+    'var ' + eachFn.name + ' = require(' + JSON.stringify(require.resolve('./lib/each')) + ');\n\n' :
+    eachFn.toString() + '\n\n';
+  this.push(str);
 };
 
 Template.prototype.start = function(ast) {
@@ -129,9 +140,8 @@ Template.prototype.traverseChildren = function(children, indent) {
   this.push('var ' + sym + ' = [];\n', indent + 1);
   for (var i = 0, c; i < children.length; i++) {
     c = children[i] || {};
-    if (c.buffer) this.push(sym + '[' + i + '] = (\n', indent + 1);
+    if (c.buffer) this.push(';' + sym + '[' + i + '] = (\n', indent + 1);
     this.traverse(c, indent + (c.buffer ? 2 : 1), i, sym);
-    // if (!c.buffer) this.push(';'); // TODO do we need this?
     this.push('\n');
     if (c.buffer) this.push(');\n', indent + 1);
   }
@@ -140,9 +150,9 @@ Template.prototype.traverseChildren = function(children, indent) {
 };
 
 Template.prototype.traverse = function(node, indent, num, sym) {
-  if (!node || !node.type) return this.push('""', indent);
+  if (!node || !node.type) return this.push(this.nullVar, indent);
   var name = 'visit_' + node.type;
-  if (!this[name]) return this.push('""', indent);
+  if (!this[name]) return this.push(this.nullVar, indent);
   this[name](node, indent, num, sym);
 };
 
@@ -238,8 +248,9 @@ Template.prototype.visit_case = function(node, indent) {
   this.push(');\n', indent + 1);
 };
 
-Template.prototype.visit_comment = function(node, indent) {
+Template.prototype.visit_comment = function(node, indent, index) {
   this.push(this.nullVar + '/** <!--' + this.indentString(node.value || '', indent + 2) + '--> */', indent);
+  if (typeof index !== 'undefined') this.push(';');
 };
 
 Template.prototype.visit_default = function(node, indent) {
@@ -337,23 +348,33 @@ Template.prototype.visit_if = function(node, indent, index, sym) {
   this.push('}', indent);
 };
 
-Template.prototype.visit_js_comment = function(node, indent) {
-  this.push(this.nullVar + '/**' + this.indentString(node.value || '', indent + 2) + ' */', indent);
+Template.prototype.visit_js_comment = function(node, indent, index) {
+  var pre = typeof index === 'undefined' ? this.nullVal : '';
+
+  this.push(pre + '/**' + this.indentString(node.value || '', indent + 2) + ' */', indent);
 };
 
-Template.prototype.visit_props = function(props, indent) {
+Template.prototype.visit_props = function(props, indent, $index) {
   var keys = Object.keys(props);
+
+  if (this.opts.keyName && typeof $index !== 'undefined' && !~keys.indexOf(this.opts.keyName)) keys.push(KEY_PROP);
+
   if (!keys.length) return this.push(this.nullVar);
+
   this.push('{\n');
   var self = this;
   keys.forEach(function(key, i) {
     self.push('"' + self.mapProp(key) + '"', indent + 1);
-    var prop = props[key];
     self.push(': (');
 
-    Array.isArray(prop.expression) ?
-      self.traverseChildren(prop.expression, indent + 1) :
-      self.push(self.expr(prop.expression));
+    var prop = props[key];
+    if (key === KEY_PROP) {
+      self.push($index);
+    } else {
+      Array.isArray(prop.expression) ?
+        self.traverseChildren(prop.expression, indent + 1) :
+        self.push(self.expr(prop.expression));
+    }
 
     self.push(')');
     if (keys.length - 1 !== i) self.push(',');
@@ -377,11 +398,11 @@ Template.prototype.visit_switch = function(node, indent) {
   this.push('})' + this.selfCall, indent);
 };
 
-Template.prototype.visit_tag = function(node, indent) {
-  if (node.name === 't') return this.visit_translate(node, indent);
+Template.prototype.visit_tag = function(node, indent, index) {
+  if (node.name === 't') return this.visit_translate(node, indent, index);
   this.push(this.domVar + '(' + this.tag(node.name) + ', ', indent);
 
-  this.visit_props(node.props || {}, indent + 1);
+  this.visit_props(node.props || {}, indent + 1, index);
 
   var children = node.children || [];
 
@@ -391,7 +412,10 @@ Template.prototype.visit_tag = function(node, indent) {
   }
   if (children.length > 1) {
     this.push(',\n');
+    this.indent(indent + 1);
     this.traverseChildren(children, indent + 1);
+    this.push('\n');
+    this.indent(indent);
   }
   this.push(')');
 };
@@ -400,11 +424,11 @@ Template.prototype.visit_text = function(node, indent) {
   this.push(node.expression, indent);
 };
 
-Template.prototype.visit_translate = function(node, indent) {
+Template.prototype.visit_translate = function(node, indent, index) {
   var props = node.props;
   var key = Object.keys(props)[0];
   this.push('t(' + JSON.stringify(key) + ', ', indent);
-  this.visit_props(node.props || {}, indent + 1);
+  this.visit_props(node.props || {}, indent + 1, index);
   this.push(',' + this.nullVar + ', 1)');
 };
 
