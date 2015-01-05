@@ -97,7 +97,6 @@ Template.prototype.toString = function() {
   var commonJS = this.opts.isCommonJS !== false ? 'module.exports = ' : '';
   var name = this.opts.name || '';
 
-  this.pushEach();
   this.push(this.constStr() + ' ' + nullVar + ' = null;\n\n');
   this.push('function ' + noop + '(){}\n\n');
   this.push(commonJS + 'function ' + name + '(' + dom + ', ' + get + ', ' + yieldVar + ', props, state, params, t) {\n');
@@ -106,20 +105,23 @@ Template.prototype.toString = function() {
 
   this.prependUsedTags();
 
-  // TODO verify there are no undeclared variables
-
   var out = this.buffer.map(function(part) {
     return typeof part === 'function' ? part() : part;
   }).join('');
   delete this.buffer;
+
+  // TODO verify there are no undeclared variables
+
   return out;
 };
 
 Template.prototype.pushEach = function() {
+  if (this._hasIncludedEach) return;
+  this._hasIncludedEach = true;
   var str = this.opts.isCommonJS !== false ?
     this.constStr() + ' ' + eachFn.name + ' = require(' + JSON.stringify(require.resolve('./lib/each')) + ');\n\n' :
     eachFn.toString() + '\n\n';
-  this.push(str);
+  this.buffer.unshift(str);
 };
 
 Template.prototype.start = function(ast) {
@@ -283,6 +285,7 @@ Template.prototype.visit_default = function(node, indent) {
 Template.prototype.visit_each = function(node, indent) {
   if (!node.children || !node.children.length) return this.push(this.nullVar, indent);
 
+  this.pushEach();
   this.push(eachFn.name + '(', indent);
   this.push(this.expr(node.expression));
   this.push(', function(');
