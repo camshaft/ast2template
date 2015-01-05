@@ -27,7 +27,7 @@ function Template(ast, opts) {
 
 Template.prototype.push = function(str, indent) {
   this.indent(indent || 0);
-  this.buffer += str;
+  this.buffer.push(str);
 };
 
 Template.prototype.indent = function(num) {
@@ -57,14 +57,19 @@ Template.prototype.tag = function(name) {
   return this.usedTags[name] = this.genSym(name);
 };
 
+Template.prototype.constStr = function() {
+  return this.opts.useConst ? 'const' : 'var';
+};
+
 Template.prototype.prependUsedTags = function() {
   var self = this;
-  self.buffer = '\n\n' + self.buffer;
-  Object.keys(this.usedTags).reverse().forEach(function(tag) {
+  var prepend = ['/**\n * tag references\n */\n\n'];
+  Object.keys(this.usedTags).forEach(function(tag) {
     var name = self.usedTags[tag];
-    self.buffer = 'var ' + name + ' = ' + JSON.stringify(tag) + ';\n' + self.buffer;
+    prepend.push(self.constStr() + ' ' + name + ' = ' + JSON.stringify(tag) + ';\n');
   });
-  self.buffer = '/**\n * tag references\n */\n\n' + self.buffer;
+  prepend.push('\n\n');
+  self.buffer = prepend.concat(self.buffer);
 };
 
 Template.prototype.mapProp = function(key) {
@@ -78,7 +83,7 @@ Template.prototype.mapProp = function(key) {
 };
 
 Template.prototype.toString = function() {
-  this.buffer = '';
+  this.buffer = [];
   this.symCount = 0;
   this.usedTags = {};
 
@@ -93,60 +98,73 @@ Template.prototype.toString = function() {
   var name = this.opts.name || '';
 
   this.pushEach();
-  this.push('var ' + nullVar + ' = null;\n\n');
+  this.push(this.constStr() + ' ' + nullVar + ' = null;\n\n');
   this.push('function ' + noop + '(){}\n\n');
   this.push(commonJS + 'function ' + name + '(' + dom + ', ' + get + ', ' + yieldVar + ', props, state, params, t) {\n');
-  this.push('return (\n', 1);
   this.start(this.ast);
-  this.push(');\n', 1);
   this.push('};\n');
 
   this.prependUsedTags();
 
   // TODO verify there are no undeclared variables
 
-  var out = this.buffer;
+  var out = this.buffer.map(function(part) {
+    return typeof part === 'function' ? part() : part;
+  }).join('');
   delete this.buffer;
   return out;
 };
 
 Template.prototype.pushEach = function() {
   var str = this.opts.isCommonJS !== false ?
-    'var ' + eachFn.name + ' = require(' + JSON.stringify(require.resolve('./lib/each')) + ');\n\n' :
+    this.constStr() + ' ' + eachFn.name + ' = require(' + JSON.stringify(require.resolve('./lib/each')) + ');\n\n' :
     eachFn.toString() + '\n\n';
   this.push(str);
 };
 
 Template.prototype.start = function(ast) {
-  if (Array.isArray(ast) && ast.length < 2) ast = ast[0];
+  var isArray = Array.isArray(ast);
 
-  if (!Array.isArray(ast)) {
+  if (isArray && ast.length >= 2 && !this.opts.wrapRoot) return this.traverseChildren(ast, 0, true);
+
+  this.push('return (\n', 1);
+  if (isArray && ast.length < 2) {
     this.traverse(ast, 2);
-    this.push('\n');
-    return;
+  } else {
+    this.push(this.domVar + '(' + this.tag('div') + ', ' + this.nullVar + ', ', 2);
+    this.traverseChildren(ast, 2);
+    this.push(')');
   }
-
-  this.push(this.domVar + '(' + this.tag('div') + ', ' + this.nullVar + ', ', 2);
-  this.traverseChildren(ast, 2);
-  this.push(')\n');
+  this.push('\n');
+  this.push(');\n', 1);
 };
 
-Template.prototype.traverseChildren = function(children, indent) {
+Template.prototype.traverseChildren = function(children, indent, removeSelfCall) {
   children = children || [];
   if (!children.length) return this.push(this.nullVar);
 
   var sym = this.genSym('arr');
-  this.push('(function() {\n');
-  this.push('var ' + sym + ' = [];\n', indent + 1);
+  if (!removeSelfCall) this.push('(function() {\n');
+
+  var counter = 0;
+  function index(current) {
+    return current ? (counter - 1) : counter++;
+  }
+
+  this.push(function() {
+    return 'var ' + sym + ' = [' + (new Array(counter)).join(',') + '];\n';
+  }, indent + 1);
+
   for (var i = 0, c; i < children.length; i++) {
     c = children[i] || {};
-    if (c.buffer) this.push(';' + sym + '[' + i + '] = (\n', indent + 1);
-    this.traverse(c, indent + (c.buffer ? 2 : 1), i, sym);
+    if (c.buffer) this.push(';' + sym + '[' + index() + '] = (\n', indent + 1);
+    this.traverse(c, indent + (c.buffer ? 2 : 1), index, sym);
     this.push('\n');
     if (c.buffer) this.push(');\n', indent + 1);
   }
+
   this.push('return ' + sym + ';\n', indent + 1);
-  this.push('})' + this.selfCall, indent);
+  if (!removeSelfCall) this.push('})' + this.selfCall, indent);
 };
 
 Template.prototype.traverse = function(node, indent, num, sym) {
@@ -290,7 +308,7 @@ Template.prototype.visit_else = function(node, indent, index, sym) {
   if (!node.children || !node.children.length) return;
 
   this.push('else {\n', indent);
-  this.push(sym + '[' + index + '] = (\n', indent + 1);
+  this.push(sym + '[' + index() + '] = (\n', indent + 1);
   this.indent(indent + 2);
   this.traverseChildren(node.children, indent + 2);
   this.push('\n');
@@ -304,7 +322,7 @@ Template.prototype.visit_elseif = function(node, indent, index, sym) {
   this.push('else if (', indent);
   this.push(this.expr(node.expression));
   this.push(') {\n');
-  this.push(sym + '[' + index + '] = (\n', indent + 1);
+  this.push(sym + '[' + index() + '] = (\n', indent + 1);
   this.indent(indent + 2);
   this.traverseChildren(node.children, indent + 2);
   this.push('\n');
@@ -340,7 +358,7 @@ Template.prototype.visit_if = function(node, indent, index, sym) {
   this.push('if (', indent);
   this.push(this.expr(node.expression));
   this.push(') {\n');
-  this.push(sym + '[' + index + '] = (\n', indent + 1);
+  this.push(sym + '[' + index() + '] = (\n', indent + 1);
   this.indent(indent + 2);
   this.traverseChildren(node.children, indent + 2);
   this.push('\n');
@@ -369,7 +387,7 @@ Template.prototype.visit_props = function(props, indent, $index) {
 
     var prop = props[key];
     if (key === KEY_PROP) {
-      self.push($index);
+      self.push($index(true));
     } else {
       Array.isArray(prop.expression) ?
         self.traverseChildren(prop.expression, indent + 1) :
@@ -414,10 +432,9 @@ Template.prototype.visit_tag = function(node, indent, index) {
     this.push(',\n');
     this.indent(indent + 1);
     this.traverseChildren(children, indent + 1);
-    this.push('\n');
-    this.indent(indent);
   }
-  this.push(')');
+  this.push('\n')
+  this.push(')', indent);
 };
 
 Template.prototype.visit_text = function(node, indent) {
@@ -427,9 +444,10 @@ Template.prototype.visit_text = function(node, indent) {
 Template.prototype.visit_translate = function(node, indent, index) {
   var props = node.props;
   var key = Object.keys(props)[0];
+  delete props[key];
   this.push('t(' + JSON.stringify(key) + ', ', indent);
   this.visit_props(node.props || {}, indent + 1, index);
-  this.push(',' + this.nullVar + ', 1)');
+  this.push(',' + this.nullVar + ', true)');
 };
 
 Template.prototype.visit_unless = function(node, indent, index, sym) {
@@ -438,7 +456,7 @@ Template.prototype.visit_unless = function(node, indent, index, sym) {
   this.push('if (!(', indent);
   this.push(this.expr(node.expression));
   this.push(')) {\n');
-  this.push(sym + '[' + index + '] = (\n', indent + 1);
+  this.push(sym + '[' + index() + '] = (\n', indent + 1);
   this.indent(indent + 2);
   this.traverseChildren(node.children, indent + 2);
   this.push('\n');
