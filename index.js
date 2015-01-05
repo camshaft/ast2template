@@ -94,7 +94,7 @@ Template.prototype.toString = function() {
   var noop = this.noopVar = this.genSym('noop');
 
   this.selfCall = this.opts.selfCall || '()';
-  var commonJS = this.opts.isCommonJS !== false ? 'module.exports = ' : '';
+  var commonJS = this.opts.isCommonJS !== false && this.opts.autoExport !== false ? 'module.exports = ' : '';
   var name = this.opts.name || '';
 
   this.push(this.constStr() + ' ' + nullVar + ' = null;\n\n');
@@ -154,7 +154,8 @@ Template.prototype.traverseChildren = function(children, indent, removeSelfCall)
   }
 
   this.push(function() {
-    return 'var ' + sym + ' = [' + (new Array(counter)).join(',') + '];\n';
+    // http://jsperf.com/init-array-static
+    return 'var ' + sym + ' = new Array(' + counter + ');\n';
   }, indent + 1);
 
   for (var i = 0, c; i < children.length; i++) {
@@ -446,11 +447,18 @@ Template.prototype.visit_text = function(node, indent) {
 
 Template.prototype.visit_translate = function(node, indent, index) {
   var props = node.props;
-  var key = Object.keys(props)[0];
+  var keys = Object.keys(props);
+  var key = keys[0];
   delete props[key];
+
+  var defaultValue = props['-'] ?
+    '(process.env.NODE_ENV !== "production" ? ' + props['-'].expression + ' : ' + this.nullVar + ')' :
+    this.nullVar;
+  delete props['-'];
+
   this.push('t(' + JSON.stringify(key) + ', ', indent);
   this.visit_props(node.props || {}, indent + 1, index);
-  this.push(',' + this.nullVar + ', true)');
+  this.push(',' + defaultValue + ', true)');
 };
 
 Template.prototype.visit_unless = function(node, indent, index, sym) {
