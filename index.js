@@ -135,7 +135,7 @@ Template.prototype.start = function(ast) {
 
   this.push('return (\n', 1);
   if (isArray && ast.length < 2) {
-    this.traverse(ast, 2);
+    this.traverse(ast[0], 2);
   } else {
     this.push(this.domVar + '(' + this.tag('div') + ', ' + this.nullVar + ', ', 2);
     this.traverseChildren(ast, 2);
