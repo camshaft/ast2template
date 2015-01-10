@@ -536,5 +536,6 @@ Template.prototype.visit_var = function(node, indent) {
 };
 
 Template.prototype.visit_yield = function(node, indent, index, sym) {
-  this.push(this.yieldVar + '()', indent);
+  var pre = index ? sym + '[' + index() + '] = ' : '';
+  this.push(pre + this.yieldVar + '()', indent);
 };
