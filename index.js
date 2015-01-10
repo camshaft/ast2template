@@ -363,6 +363,13 @@ Template.prototype.visit_for = function(node, indent) {
 Template.prototype.visit_if = function(node, indent, index, sym) {
   if (!node.children || !node.children.length) return;
 
+  if (!index) {
+    this.push('(', indent);
+    this.push(this.expr(node.expression));
+    this.push(') && ');
+    return this.traverseChildren(node.children, indent);
+  }
+
   this.push('if (', indent);
   this.push(this.expr(node.expression));
   this.push(') {\n');
