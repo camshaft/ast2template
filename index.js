@@ -30,6 +30,10 @@ Template.prototype.push = function(str, indent) {
   this.buffer.push(str);
 };
 
+Template.prototype.prepend = function(str) {
+  this.buffer.unshift(str);
+};
+
 Template.prototype.indent = function(num) {
   for (var i = 0; i < num; i++) this.push('  ');
 };
@@ -87,8 +91,8 @@ Template.prototype.toString = function() {
   this.symCount = 0;
   this.usedTags = {};
 
-  var dom = this.domVar = this.genSym('dom');
-  var get = this.getVar = this.genSym('get');
+  var dom = this.domVar = 'DOM';
+  var get = this.getVar = '$get';
   var nullVar = this.nullVar = this.genSym('null');
   var yieldVar = this.yieldVar = this.genSym('yield');
   var noop = this.noopVar = this.genSym('noop');
@@ -178,8 +182,8 @@ Template.prototype.traverse = function(node, indent, num, sym) {
 };
 
 Template.prototype.expr = function(str) {
-  var ast = acorn.parse(str, {
-
+  var ast = typeof str !== 'string' ? str : acorn.parse(str, {
+    ecmaVersion: 6
   });
 
   var get = this.getVar;
@@ -370,6 +374,15 @@ Template.prototype.visit_if = function(node, indent, index, sym) {
   this.push('}', indent);
 };
 
+Template.prototype.visit_import = function(node, indent) {
+  var ast = acorn.parse('import ' + node.expression, {ecmaVersion: 6});
+  var body = ast.body[0]
+  var specifiers = body.specifiers;
+  if (specifiers.length !== 1 || specifiers[0]['default'] !== true) return this.prepend('import ' + node.expression + ';\n');
+  var spec = specifiers[0].id;
+  this.prepend('var ' + spec.name + ' = require(' + body.source.raw + ');\n');
+};
+
 Template.prototype.visit_js_comment = function(node, indent, index) {
   var pre = typeof index === 'undefined' ? this.nullVal : '';
 
@@ -392,10 +405,12 @@ Template.prototype.visit_props = function(props, indent, $index) {
     var prop = props[key];
     if (key === KEY_PROP) {
       self.push($index(true));
+    } else if (key === 'class') {
+      self.visit_prop_class(prop, indent, $index);
     } else {
       Array.isArray(prop.expression) ?
         self.traverseChildren(prop.expression, indent + 1) :
-        self.push(self.expr(prop.expression));
+        self.push(self.expr('(' + prop.expression + ')'));
     }
 
     self.push(')');
@@ -403,6 +418,47 @@ Template.prototype.visit_props = function(props, indent, $index) {
     self.push('\n');
   });
   this.push('}', indent);
+};
+
+Template.prototype.visit_prop_class = function(klass, indent, $index) {
+  var self = this;
+
+  // TODO sort the classes and put the expressions at the back
+
+  var out = (klass.expressions).map(function(c) {
+    var wrapped = '(' + c + ')';
+
+    var ast = acorn.parse(wrapped, {
+      ecmaVersion: 6
+    });
+
+    var expr = ast.body[0].expression;
+
+    if (expr.type === 'Literal') return c;
+    if (expr.type === 'Identifier') return c; //TODO include runtime class toggle lib
+    if (expr.type !== 'ObjectExpression') return '(' + self.expr(ast) + ')';
+
+    var exprs = expr.properties.map(function(prop) {
+      var cond = {
+        type: 'ConditionalExpression',
+        test: prop.value,
+        consequent: prop.key,
+        alternate: {type: 'Literal', value: '', raw: '""'}
+      };
+
+      return self.expr({
+        type: 'Program',
+        body: [{
+          type: 'ExpressionStatement',
+          expression: cond
+        }]
+      });
+    }).join(' + " " + ');
+
+    return '(' + exprs + ')';
+  }).join(' + " " + ');
+
+  this.push(out);
 };
 
 Template.prototype.visit_switch = function(node, indent) {
@@ -447,16 +503,16 @@ Template.prototype.visit_text = function(node, indent) {
 
 Template.prototype.visit_translate = function(node, indent, index) {
   var props = node.props;
-  var keys = Object.keys(props);
-  var key = keys[0];
-  delete props[key];
+
+  var path = props.path;
+  delete props.path;
 
   var defaultValue = props['-'] ?
     '(process.env.NODE_ENV !== "production" ? ' + props['-'].expression + ' : ' + this.nullVar + ')' :
     this.nullVar;
   delete props['-'];
 
-  this.push('t(' + JSON.stringify(key) + ', ', indent);
+  this.push('t(' + this.expr(path.expression) + ', ', indent);
   this.visit_props(node.props || {}, indent + 1, index);
   this.push(',' + defaultValue + ', true)');
 };
@@ -473,6 +529,10 @@ Template.prototype.visit_unless = function(node, indent, index, sym) {
   this.push('\n');
   this.push(');\n', indent + 1);
   this.push('}', indent);
+};
+
+Template.prototype.visit_var = function(node, indent) {
+  this.push('var ' + this.expr(node.expression) + ';\n', indent);
 };
 
 Template.prototype.visit_yield = function(node, indent, index, sym) {
