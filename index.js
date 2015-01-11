@@ -169,7 +169,7 @@ Template.prototype.traverseChildren = function(children, indent, removeSelfCall)
   }
 
   this.push(function() {
-    // http://jsperf.com/init-array-static
+    // http://jsperf.com/init-array-static/3
     return 'var ' + sym + ' = new Array(' + counter + ');\n';
   }, indent + 1);
 
@@ -291,11 +291,28 @@ Template.prototype.visit_for = function(node, indent) {
   var sym = this.genSym('arr');
   var count = this.genSym('count');
 
+  var str = node.expression;
+  var expr;
+  try {
+    expr = this.expr(str, node.line);
+  } catch (err) {
+    // add support for "for (var k of ...)"
+    var match = str.match(/^( *(?:var|let) +[a-zA-Z_][a-zA-Z0-9_]* +of +)(.*)/);
+    if (!match) throw err;
+
+    // TODO why are you cutting of the last ) jade?
+    try {
+      expr = match[1] + this.expr(match[2] + ')');
+    } catch (e) {
+      expr = match[1] + this.expr(match[2]);
+    }
+  }
+
   this.push('(function() {\n', indent);
   this.push('var ' + count + ' = 0;\n', indent + 1);
   this.push('var ' + sym + ' = [];\n', indent + 1);
   this.push('for (', indent + 1);
-  this.push(this.expr(node.expression, node.lone));
+  this.push(expr);
   this.push(') {\n');
   this.push(sym + '[' + count + '++] = (\n', indent + 2);
   this.indent(indent + 3);
