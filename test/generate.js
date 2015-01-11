@@ -105,7 +105,8 @@ Test.prototype._expression = function() {
   var expr = this.b.pick([
     ['params.foobar', null],
     ['"this is a string"', 'this is a string'],
-    ['[1,2,3,4,5]', [1,2,3,4,5]]
+    ['[1,2,3,4,5]', [1,2,3,4,5]],
+    ['props.users[0].friends[0].name', null]
   ]);
 
   return [{
