@@ -4,7 +4,7 @@
   "description": "convert an ast to a template function",
   "main": "index.js",
   "scripts": {
-    "test": "NODE_ENV=test ./node_modules/.bin/mocha"
+    "test": "NODE_ENV=test make test"
   },
   "repository": {
     "type": "git",
@@ -20,10 +20,20 @@
     "acorn": "^0.10.0",
     "escodegen": "^1.4.2",
     "estraverse": "^1.9.0",
+    "flatten": "0.0.1",
     "to-camel-case": "^0.2.1"
   },
   "devDependencies": {
+    "blarney": "^0.1.5",
+    "bytes": "^1.0.0",
+    "colors": "^1.0.3",
+    "directiv-test-benchmark": "^0.1.0",
+    "eval": "^0.1.0",
+    "hyper-path": "^1.0.14",
+    "hyper-store": "^0.2.0",
     "mocha": "^2.0.1",
-    "should": "^4.4.1"
+    "secure-random": "^1.1.1",
+    "should": "^4.4.1",
+    "uglify-js": "^2.4.16"
   }
 }

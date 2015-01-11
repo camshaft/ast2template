@@ -129,6 +129,8 @@ Template.prototype.pushEach = function() {
 };
 
 Template.prototype.start = function(ast) {
+  if (!ast) return this.push('return ' + this.nullVar + ';\n', 1);
+
   var isArray = Array.isArray(ast);
 
   if (isArray && ast.length >= 2 && !this.opts.wrapRoot) return this.traverseChildren(ast, 0, true);
@@ -274,8 +276,8 @@ Template.prototype.visit_case = function(node, indent) {
 };
 
 Template.prototype.visit_comment = function(node, indent, index) {
-  this.push(this.nullVar + '/** <!--' + this.indentString(node.value || '', indent + 2) + '--> */', indent);
-  if (typeof index !== 'undefined') this.push(';');
+  var pre = typeof index === 'undefined' ? this.nullVar : '';
+  this.push(pre + '/** <!--' + this.indentString(node.value || '', indent + 2) + '--> */', indent);
 };
 
 Template.prototype.visit_default = function(node, indent) {
@@ -292,7 +294,7 @@ Template.prototype.visit_each = function(node, indent) {
 
   this.pushEach();
   this.push(eachFn.name + '(', indent);
-  this.push(this.expr(node.expression));
+  this.push(this.expr('(' + node.expression + ')'));
   this.push(', function(');
   this.push(node.value);
   this.push(', ');
@@ -309,7 +311,7 @@ Template.prototype.visit_each = function(node, indent) {
 };
 
 Template.prototype.visit_expression = function(node, indent) {
-  this.push(this.expr(node.expression), indent);
+  this.push(this.expr('(' + node.expression + ')'), indent);
 };
 
 Template.prototype.visit_else = function(node, indent, index, sym) {
@@ -392,7 +394,6 @@ Template.prototype.visit_import = function(node, indent) {
 
 Template.prototype.visit_js_comment = function(node, indent, index) {
   var pre = typeof index === 'undefined' ? this.nullVal : '';
-
   this.push(pre + '/**' + this.indentString(node.value || '', indent + 2) + ' */', indent);
 };
 
