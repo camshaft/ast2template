@@ -252,7 +252,11 @@ Template.prototype.visit_expression = function(node, indent) {
   var out = this.expr(node.expression, node.line);
   if (out.indexOf('t(') === 0) return this.push(out, indent);
   this.pushSafeExpression();
-  this.push(safeExpression.name + '(' + out + ', (process.env.NODE_ENV !== "production" ? [' + JSON.stringify(node.expression) + ', ' + (node.line || 0) + '] : null))', indent);
+  var expr = safeExpression.name + '(' + out +
+        ', (process.env.NODE_ENV !== "production" ? [' +
+          JSON.stringify(node.expression) + ', ' + (node.line || 0) +
+          '] : null))';
+  this.push(expr, indent);
 };
 
 Template.prototype.visit_else = function(node, indent, index, sym) {
