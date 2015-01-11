@@ -3,12 +3,11 @@
  */
 
 var acorn = require('acorn');
-var estraverse = require('estraverse');
-var escodegen = require('escodegen');
 var tags = require('./lib/supported-tags');
 var createHash = require('crypto').createHash;
 var camel = require('to-camel-case');
 var eachFn = require('./lib/each');
+var memberExpression = require('./lib/member-expression');
 var supportedProps = require('./lib/supported-props');
 
 var KEY_PROP = '__ast2template_key_prop';
@@ -183,87 +182,16 @@ Template.prototype.traverse = function(node, indent, num, sym) {
   this[name](node, indent, num, sym);
 };
 
-Template.prototype.expr = function(str) {
-  var ast = typeof str !== 'string' ? str : acorn.parse(str, {
-    ecmaVersion: 6
-  });
-
+Template.prototype.expr = function(str, line) {
   var get = this.getVar;
   var noop = this.noopVar;
   var nullVar = this.nullVar;
 
-  function member(node, args) {
-    var prop = node.property;
-    prop.type = 'Literal';
-    prop.value = prop.value || prop.name;
-    prop.raw = prop.raw || '"' + prop.name + '"';
-    delete prop.name;
-    args.unshift(prop);
-
-    var obj = node.object;
-    if (obj && obj.type === 'MemberExpression') return member(obj, args);
-
-    if (obj.name === '_') {
-      args.unshift({
-        type: 'Literal',
-        value: '',
-        raw: '""'
-      });
-      return {
-        args: args
-      };
-    }
-
-    return {
-      args: args,
-      root: obj
-    };
+  try {
+    return memberExpression(str, get, noop, nullVar);
+  } catch (e) {
+    throw invalidExpression(str, line);
   }
-
-  var result = estraverse.replace(ast, {
-    enter: function(node, parent) {
-      if (node.type !== 'MemberExpression') return node;
-
-      var conf = member(node, []);
-
-      node.type = 'CallExpression';
-      node.callee = {
-        type: 'Identifier',
-        name: get
-      };
-      node.arguments = [
-        {
-          type: 'ArrayExpression',
-          elements: conf.args
-        }
-      ];
-
-      if (conf.root) node.arguments.push(conf.root);
-
-      if (parent.type === 'CallExpression' && parent.callee === node) {
-        if (node.arguments.length === 1) node.arguments.push({
-          type: 'Identifier',
-          name: nullVar
-        });
-
-        node.arguments.push({
-          type: 'Identifier',
-          name: noop
-        });
-      }
-    }
-  });
-
-  var out = escodegen.generate(result, {
-    format: {
-      indent: '',
-      newline: '',
-      compact: true,
-      semicolons: false
-    }
-  });
-
-  return out;
 };
 
 Template.prototype.visit_case = function(node, indent) {
@@ -294,7 +222,7 @@ Template.prototype.visit_each = function(node, indent) {
 
   this.pushEach();
   this.push(eachFn.name + '(', indent);
-  this.push(this.expr('(' + node.expression + ')'));
+  this.push(this.expr(node.expression, node.line));
   this.push(', function(');
   this.push(node.value);
   this.push(', ');
@@ -311,7 +239,7 @@ Template.prototype.visit_each = function(node, indent) {
 };
 
 Template.prototype.visit_expression = function(node, indent) {
-  this.push(this.expr('(' + node.expression + ')'), indent);
+  this.push(this.expr(node.expression, node.line), indent);
 };
 
 Template.prototype.visit_else = function(node, indent, index, sym) {
@@ -330,7 +258,7 @@ Template.prototype.visit_elseif = function(node, indent, index, sym) {
   if (!node.children || !node.children.length) return;
 
   this.push('else if (', indent);
-  this.push(this.expr(node.expression));
+  this.push(this.expr(node.expression, node.line));
   this.push(') {\n');
   this.push(sym + '[' + index() + '] = (\n', indent + 1);
   this.indent(indent + 2);
@@ -350,7 +278,7 @@ Template.prototype.visit_for = function(node, indent) {
   this.push('var ' + count + ' = 0;\n', indent + 1);
   this.push('var ' + sym + ' = [];\n', indent + 1);
   this.push('for (', indent + 1);
-  this.push(this.expr(node.expression));
+  this.push(this.expr(node.expression, node.lone));
   this.push(') {\n');
   this.push(sym + '[' + count + '++] = (\n', indent + 2);
   this.indent(indent + 3);
@@ -367,13 +295,13 @@ Template.prototype.visit_if = function(node, indent, index, sym) {
 
   if (!index) {
     this.push('(', indent);
-    this.push(this.expr(node.expression));
+    this.push(this.expr(node.expression, node.line));
     this.push(') && ');
     return this.traverseChildren(node.children, indent);
   }
 
   this.push('if (', indent);
-  this.push(this.expr(node.expression));
+  this.push(this.expr(node.expression, node.line));
   this.push(') {\n');
   this.push(sym + '[' + index() + '] = (\n', indent + 1);
   this.indent(indent + 2);
@@ -384,7 +312,14 @@ Template.prototype.visit_if = function(node, indent, index, sym) {
 };
 
 Template.prototype.visit_import = function(node, indent) {
-  var ast = acorn.parse('import ' + node.expression, {ecmaVersion: 6});
+  var expr = 'import ' + node.expression;
+
+  try {
+    var ast = acorn.parse(expr, {ecmaVersion: 6});
+  } catch (_) {
+    throw invalidExpression(expr, node.line);
+  }
+
   var body = ast.body[0]
   var specifiers = body.specifiers;
   if (specifiers.length !== 1 || specifiers[0]['default'] !== true) return this.prepend('import ' + node.expression + ';\n');
@@ -418,7 +353,7 @@ Template.prototype.visit_props = function(props, indent, $index) {
     } else {
       Array.isArray(prop.expression) ?
         self.traverseChildren(prop.expression, indent + 1) :
-        self.push(self.expr('(' + prop.expression + ')'));
+        self.push(self.expr(prop.expression, prop.line));
     }
 
     self.push(')');
@@ -436,9 +371,13 @@ Template.prototype.visit_prop_class = function(klass, indent, $index) {
   var out = (klass.expressions).map(function(c) {
     var wrapped = '(' + c + ')';
 
-    var ast = acorn.parse(wrapped, {
-      ecmaVersion: 6
-    });
+    try {
+      var ast = acorn.parse(wrapped, {
+        ecmaVersion: 6
+      });
+    } catch (e) {
+      throw invalidExpression(c);
+    }
 
     var expr = ast.body[0].expression;
 
@@ -520,7 +459,7 @@ Template.prototype.visit_translate = function(node, indent, index) {
     this.nullVar;
   delete props['-'];
 
-  this.push('t(' + this.expr(path.expression) + ', ', indent);
+  this.push('t(' + this.expr(path.expression, path.line) + ', ', indent);
   this.visit_props(node.props || {}, indent + 1, index);
   this.push(',' + defaultValue + ', true)');
 };
@@ -529,7 +468,7 @@ Template.prototype.visit_unless = function(node, indent, index, sym) {
   if (!node.children || !node.children.length) return;
 
   this.push('if (!(', indent);
-  this.push(this.expr(node.expression));
+  this.push(this.expr(node.expression, node.line));
   this.push(')) {\n');
   this.push(sym + '[' + index() + '] = (\n', indent + 1);
   this.indent(indent + 2);
@@ -540,10 +479,18 @@ Template.prototype.visit_unless = function(node, indent, index, sym) {
 };
 
 Template.prototype.visit_var = function(node, indent) {
-  this.push('var ' + this.expr(node.expression) + ';\n', indent);
+  this.push(this.expr('var ' + node.expression, node.line) + ';\n', indent);
 };
 
 Template.prototype.visit_yield = function(node, indent, index, sym) {
   var pre = index ? sym + '[' + index() + '] = ' : '';
   this.push(pre + this.yieldVar + '()', indent);
 };
+
+function invalidExpression(expr, line) {
+  return new Error('invalid expression: ' + JSON.stringify(expr) + lineString(line));
+}
+
+function lineString(line) {
+  return line ? ' (' + line + ')' : '';
+}

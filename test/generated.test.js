@@ -16,10 +16,10 @@ describe('generated cases (' + seed + ')', function() {
   generate(seed).forEach(function(test, i) {
     it('test ' + i, function(next) {
       var fn = utils.compile(test);
-      var out = fn(utils.DOM, utils.$get);
-      if (out && !Array.isArray(out)) out = [out];
-      var actual = flatten(utils.clone(out));
       try {
+        var out = fn(utils.DOM, utils.$get);
+        if (out && !Array.isArray(out)) out = [out];
+        var actual = flatten(utils.clone(out));
         should(actual).eql(test.output);
       } catch (e) {
         var path = root + '/seed-' + seed + '-test-' + i;

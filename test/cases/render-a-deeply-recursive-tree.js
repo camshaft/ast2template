@@ -5,18 +5,18 @@ function tree(i) {
     {
       type: 'tag',
       name: 'div',
-      children: [children[0]],
+      children: [children[0], children[0]],
       buffer: true
     },
     {
       tag: 'div',
       props: {},
-      children: children[1] ? [children[1]] : null
+      children: children[1] ? [children[1], children[1]] : null
     }
   ];
 }
 
-var children = tree(500);
+var children = tree(10);
 
 exports.input = [
   {
