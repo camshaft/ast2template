@@ -8,6 +8,7 @@ var createHash = require('crypto').createHash;
 var camel = require('to-camel-case');
 var eachFn = require('./lib/each');
 var memberExpression = require('./lib/member-expression');
+var safeExpression = require('./lib/safe-expression');
 var supportedProps = require('./lib/supported-props');
 
 var KEY_PROP = '__ast2template_key_prop';
@@ -127,6 +128,15 @@ Template.prototype.pushEach = function() {
   this.buffer.unshift(str);
 };
 
+Template.prototype.pushSafeExpression = function() {
+  if (this._hasIncludedSafeExpression) return;
+  this._hasIncludedSafeExpression = true;
+  var str = this.opts.isCommonJS !== false ?
+    this.constStr() + ' ' + safeExpression.name + ' = require(' + JSON.stringify(require.resolve('./lib/safe-expression')) + ');\n\n' :
+    safeExpression.toString() + '\n\n';
+  this.buffer.unshift(str);
+};
+
 Template.prototype.start = function(ast) {
   if (!ast) return this.push('return ' + this.nullVar + ';\n', 1);
 
@@ -239,7 +249,10 @@ Template.prototype.visit_each = function(node, indent) {
 };
 
 Template.prototype.visit_expression = function(node, indent) {
-  this.push(this.expr(node.expression, node.line), indent);
+  var out = this.expr(node.expression, node.line);
+  if (out.indexOf('t(') === 0) return this.push(out, indent);
+  this.pushSafeExpression();
+  this.push(safeExpression.name + '(' + out + ', (process.env.NODE_ENV !== "production" ? [' + JSON.stringify(node.expression) + ', ' + (node.line || 0) + '] : null))', indent);
 };
 
 Template.prototype.visit_else = function(node, indent, index, sym) {
