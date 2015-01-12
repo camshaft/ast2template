@@ -385,16 +385,27 @@ Template.prototype.visit_props = function(props, indent, $index) {
     } else if (key === 'class') {
       self.visit_prop_class(prop, indent, $index);
     } else {
-      Array.isArray(prop.expression) ?
-        self.traverseChildren(prop.expression, indent + 1) :
-        self.push(self.expr(prop.expression, prop.line));
+      self.visit_prop_expression(prop, indent, $index);
     }
 
     self.push(')');
     if (keys.length - 1 !== i) self.push(',');
     self.push('\n');
   });
+
   this.push('}', indent);
+};
+
+Template.prototype.visit_prop_expression = function(prop, indent, $index) {
+  if (!Array.isArray(prop.expression)) return this.push(this.expr(prop.expression, prop.line));
+
+  var hasArgs = !!prop.args;
+
+  if (hasArgs) this.push('(function' + prop.args + ' {\n');
+
+  this.traverseChildren(prop.expression, indent + 1, hasArgs);
+
+  if (hasArgs) this.push('})', 1 + indent);
 };
 
 Template.prototype.visit_prop_class = function(klass, indent, $index) {
@@ -519,7 +530,10 @@ Template.prototype.visit_var = function(node, indent) {
 Template.prototype.visit_yield = function(node, indent, index, sym) {
   var name = node.name ? JSON.stringify(node.name) : '';
   var pre = index ? sym + '[' + index() + '] = ' : '';
-  this.push(pre + this.yieldVar + '(' + name + ')', indent);
+  var args = node.args ?
+        node.args.replace(/^ *\(/, ', ') :
+        ')';
+  this.push(pre + this.yieldVar + '(' + name + args, indent);
 };
 
 function invalidExpression(expr, line) {
