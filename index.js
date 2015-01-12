@@ -517,8 +517,9 @@ Template.prototype.visit_var = function(node, indent) {
 };
 
 Template.prototype.visit_yield = function(node, indent, index, sym) {
+  var name = node.name ? JSON.stringify(node.name) : '';
   var pre = index ? sym + '[' + index() + '] = ' : '';
-  this.push(pre + this.yieldVar + '()', indent);
+  this.push(pre + this.yieldVar + '(' + name + ')', indent);
 };
 
 function invalidExpression(expr, line) {
