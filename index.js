@@ -98,7 +98,7 @@ Template.prototype.toString = function() {
   var noop = this.noopVar = this.genSym('noop');
 
   this.selfCall = this.opts.selfCall || '()';
-  var commonJS = this.opts.isCommonJS !== false && this.opts.autoExport !== false ? 'module.exports = ' : '';
+  var commonJS = this.opts.isCommonJS !== false && this.opts.autoExport !== false ? 'exports.render = ' : '';
   var name = this.opts.name || '';
 
   this.push(this.constStr() + ' ' + nullVar + ' = null;\n\n');
@@ -246,6 +246,10 @@ Template.prototype.visit_each = function(node, indent) {
   this.push('}', indent);
   if (this.selfCall !== '()') this.push(', this');
   this.push(')');
+};
+
+Template.prototype.visit_export = function(node, indent) {
+  this.prepend('export ' + node.expression + '\n\n');
 };
 
 Template.prototype.visit_expression = function(node, indent) {
