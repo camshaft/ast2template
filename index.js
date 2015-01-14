@@ -291,7 +291,9 @@ Template.prototype.visit_each = function(node, indent) {
 };
 
 Template.prototype.visit_export = function(node, indent) {
-  this.prepend('export ' + node.expression + '\n\n');
+  var expr = node.expression;
+  if (!/\; *$/.test(expr)) expr += ';';
+  this.prepend('export ' + expr + '\n\n');
 };
 
 Template.prototype.visit_expression = function(node, indent) {
