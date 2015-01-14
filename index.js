@@ -161,12 +161,25 @@ Template.prototype.traverseChildren = function(children, indent, removeSelfCall)
   children = children || [];
   if (!children.length) return this.push(this.nullVar);
 
+  if (children.length === 1 && children[0] && children[0].buffer) {
+    if (removeSelfCall) this.push('return (\n', indent + 1);
+    this.traverse(children[0], indent + 2);
+    if (removeSelfCall) {
+      this.push('\n');
+      this.push(');\n', indent + 1);
+    }
+    return;
+  }
+
+  var buffered = countBufferedChildren(children);
+  if (buffered < 2) return this.traverseSingleBufferedChild(children, indent, removeSelfCall, buffered);
+
   var sym = this.genSym('arr');
   if (!removeSelfCall) this.push('(function() {\n');
 
   var counter = 0;
-  function index(current) {
-    return current ? (counter - 1) : counter++;
+  function statement(current) {
+    return current ? (counter - 1) : '; ' + sym + '[' + (counter++) + '] = ';
   }
 
   this.push(function() {
@@ -176,8 +189,8 @@ Template.prototype.traverseChildren = function(children, indent, removeSelfCall)
 
   for (var i = 0, c; i < children.length; i++) {
     c = children[i] || {};
-    if (c.buffer) this.push(';' + sym + '[' + index() + '] = (\n', indent + 1);
-    this.traverse(c, indent + (c.buffer ? 2 : 1), index, sym);
+    if (c.buffer) this.push(statement() + '(\n', indent + 1);
+    this.traverse(c, indent + (c.buffer ? 2 : 1), statement);
     this.push('\n');
     if (c.buffer) this.push(');\n', indent + 1);
   }
@@ -186,11 +199,39 @@ Template.prototype.traverseChildren = function(children, indent, removeSelfCall)
   if (!removeSelfCall) this.push('})' + this.selfCall, indent);
 };
 
-Template.prototype.traverse = function(node, indent, num, sym) {
+Template.prototype.traverseSingleBufferedChild = function(children, indent, removeSelfCall, buffered) {
+  var sym = this.genSym('res');
+
+  var i = 0;
+
+  function statement(current) {
+    if (current) return 0;
+    return i + 1 === children.length ?
+      '; return ' :
+      '; ' + sym + ' = ';
+  }
+
+  if (!removeSelfCall) this.push('(function() {\n');
+
+  this.push('var ' + sym + ';\n', indent + 1);
+
+  for (var c; i < children.length; i++) {
+    c = children[i] || {};
+    if (c.buffer) this.push(statement() + '(\n', indent + 1);
+    this.traverse(c, indent + (c.buffer ? 2 : 1), statement);
+    this.push('\n');
+    if (c.buffer) this.push(');\n', indent + 1);
+  }
+
+  if (buffered) this.push('return ' + sym + ';\n', indent + 1);
+  if (!removeSelfCall) this.push('})' + this.selfCall, indent);
+};
+
+Template.prototype.traverse = function(node, indent, num) {
   if (!node || !node.type) return this.push(this.nullVar, indent);
   var name = 'visit_' + node.type;
   if (!this[name]) return this.push(this.nullVar, indent);
-  this[name](node, indent, num, sym);
+  this[name](node, indent, num);
 };
 
 Template.prototype.expr = function(str, line) {
@@ -264,11 +305,11 @@ Template.prototype.visit_expression = function(node, indent) {
   this.push(expr, indent);
 };
 
-Template.prototype.visit_else = function(node, indent, index, sym) {
+Template.prototype.visit_else = function(node, indent, statement) {
   if (!node.children || !node.children.length) return;
 
   this.push('else {\n', indent);
-  this.push(sym + '[' + index() + '] = (\n', indent + 1);
+  this.push(statement() + '(\n', indent + 1);
   this.indent(indent + 2);
   this.traverseChildren(node.children, indent + 2);
   this.push('\n');
@@ -276,13 +317,13 @@ Template.prototype.visit_else = function(node, indent, index, sym) {
   this.push('}', indent);
 };
 
-Template.prototype.visit_elseif = function(node, indent, index, sym) {
+Template.prototype.visit_elseif = function(node, indent, statement) {
   if (!node.children || !node.children.length) return;
 
   this.push('else if (', indent);
   this.push(this.expr(node.expression, node.line));
   this.push(') {\n');
-  this.push(sym + '[' + index() + '] = (\n', indent + 1);
+  this.push(statement() + '(\n', indent + 1);
   this.indent(indent + 2);
   this.traverseChildren(node.children, indent + 2);
   this.push('\n');
@@ -329,10 +370,10 @@ Template.prototype.visit_for = function(node, indent) {
   this.push('})' + this.selfCall, indent);
 };
 
-Template.prototype.visit_if = function(node, indent, index, sym) {
+Template.prototype.visit_if = function(node, indent, statement) {
   if (!node.children || !node.children.length) return;
 
-  if (!index) {
+  if (!statement) {
     this.push('(', indent);
     this.push(this.expr(node.expression, node.line));
     this.push(') && ');
@@ -342,7 +383,7 @@ Template.prototype.visit_if = function(node, indent, index, sym) {
   this.push('if (', indent);
   this.push(this.expr(node.expression, node.line));
   this.push(') {\n');
-  this.push(sym + '[' + index() + '] = (\n', indent + 1);
+  this.push(statement() + '(\n', indent + 1);
   this.indent(indent + 2);
   this.traverseChildren(node.children, indent + 2);
   this.push('\n');
@@ -376,9 +417,9 @@ Template.prototype.visit_props = function(props, indent, $index) {
     if (key === KEY_PROP) {
       self.push($index(true));
     } else if (key === 'class') {
-      self.visit_prop_class(prop, indent, $index);
+      self.visit_prop_class(prop, indent);
     } else {
-      self.visit_prop_expression(prop, indent, $index);
+      self.visit_prop_expression(prop, indent);
     }
 
     self.push(')');
@@ -389,7 +430,7 @@ Template.prototype.visit_props = function(props, indent, $index) {
   this.push('}', indent);
 };
 
-Template.prototype.visit_prop_expression = function(prop, indent, $index) {
+Template.prototype.visit_prop_expression = function(prop, indent) {
   if (!Array.isArray(prop.expression)) return this.push(this.expr(prop.expression, prop.line));
 
   var hasArgs = !!prop.args;
@@ -407,7 +448,7 @@ Template.prototype.visit_prop_expression = function(prop, indent, $index) {
   if (hasArgs) this.push('})', 1 + indent);
 };
 
-Template.prototype.visit_prop_class = function(klass, indent, $index) {
+Template.prototype.visit_prop_class = function(klass, indent) {
   var self = this;
 
   // TODO sort the classes and put the expressions at the back
@@ -467,11 +508,11 @@ Template.prototype.visit_switch = function(node, indent) {
   this.push('})' + this.selfCall, indent);
 };
 
-Template.prototype.visit_tag = function(node, indent, index) {
-  if (node.name === 't') return this.visit_translate(node, indent, index);
+Template.prototype.visit_tag = function(node, indent, statement) {
+  if (node.name === 't') return this.visit_translate(node, indent, statement);
   this.push(this.domVar + '(' + this.tag(node.name) + ', ', indent);
 
-  this.visit_props(node.props || {}, indent + 1, index);
+  this.visit_props(node.props || {}, indent + 1, statement);
 
   var children = node.children || [];
 
@@ -492,7 +533,7 @@ Template.prototype.visit_text = function(node, indent) {
   this.push(node.expression, indent);
 };
 
-Template.prototype.visit_translate = function(node, indent, index) {
+Template.prototype.visit_translate = function(node, indent, statement) {
   var props = node.props;
 
   var path = props.path;
@@ -504,17 +545,17 @@ Template.prototype.visit_translate = function(node, indent, index) {
   delete props['-'];
 
   this.push('t(' + this.expr(path.expression, path.line) + ', ', indent);
-  this.visit_props(node.props || {}, indent + 1, index);
+  this.visit_props(node.props || {}, indent + 1, statement);
   this.push(',' + defaultValue + ', true)');
 };
 
-Template.prototype.visit_unless = function(node, indent, index, sym) {
+Template.prototype.visit_unless = function(node, indent, statement) {
   if (!node.children || !node.children.length) return;
 
   this.push('if (!(', indent);
   this.push(this.expr(node.expression, node.line));
   this.push(')) {\n');
-  this.push(sym + '[' + index() + '] = (\n', indent + 1);
+  this.push(statement() + '(\n', indent + 1);
   this.indent(indent + 2);
   this.traverseChildren(node.children, indent + 2);
   this.push('\n');
@@ -526,9 +567,9 @@ Template.prototype.visit_var = function(node, indent) {
   this.push(this.expr('var ' + node.expression, node.line) + ';\n', indent);
 };
 
-Template.prototype.visit_yield = function(node, indent, index, sym) {
+Template.prototype.visit_yield = function(node, indent, statement) {
   var name = node.name ? JSON.stringify(node.name) : '';
-  var pre = index ? sym + '[' + index() + '] = ' : '';
+  var pre = statement ? statement() : '';
   var args = node.args ?
         node.args.replace(/^ *\(/, ', ') :
         ')';
@@ -541,4 +582,17 @@ function invalidExpression(expr, line) {
 
 function lineString(line) {
   return line ? ' (' + line + ')' : '';
+}
+
+var fakeBuffers = {
+  else: true,
+  elseif: true,
+  if: true,
+  unless: true,
+  yield: true
+};
+function countBufferedChildren(children) {
+  return children.reduce(function(acc, child) {
+    return child && (child.buffer || child.type in fakeBuffers) ? acc + 1 : acc;
+  }, 0);
 }
