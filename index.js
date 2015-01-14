@@ -103,7 +103,8 @@ Template.prototype.toString = function() {
 
   this.push(this.constStr() + ' ' + nullVar + ' = null;\n\n');
   this.push('function ' + noop + '(){}\n\n');
-  this.push(commonJS + 'function ' + name + '(' + dom + ', ' + get + ', ' + yieldVar + ', props, state, params, t) {\n');
+
+  this.push(commonJS + 'function ' + name + '(' + dom + ', ' + get + ', props, state, ' + yieldVar + ', params, query, forms, t, error) {\n');
   this.start(this.ast);
   this.push('};\n');
 
@@ -350,19 +351,7 @@ Template.prototype.visit_if = function(node, indent, index, sym) {
 };
 
 Template.prototype.visit_import = function(node, indent) {
-  var expr = 'import ' + node.expression;
-
-  try {
-    var ast = acorn.parse(expr, {ecmaVersion: 6});
-  } catch (_) {
-    throw invalidExpression(expr, node.line);
-  }
-
-  var body = ast.body[0]
-  var specifiers = body.specifiers;
-  if (specifiers.length !== 1 || specifiers[0]['default'] !== true) return this.prepend('import ' + node.expression + ';\n');
-  var spec = specifiers[0].id;
-  this.prepend('var ' + spec.name + ' = require(' + body.source.raw + ');\n');
+  this.prepend('import ' + node.expression + ';\n');
 };
 
 Template.prototype.visit_js_comment = function(node, indent, index) {
@@ -405,7 +394,13 @@ Template.prototype.visit_prop_expression = function(prop, indent, $index) {
 
   var hasArgs = !!prop.args;
 
-  if (hasArgs) this.push('(function' + prop.args + ' {\n');
+  if (hasArgs) {
+    var args = prop.args.replace('(', '').replace(')', '').split(/ *, */);
+    var getName = this.getVar + '__override';
+    args.push(getName);
+    this.push('(function' + '(' + args.join(', ') + ') {\n');
+    this.push(this.getVar + ' = ' + getName + ' || ' + this.getVar + ';\n', indent + 2);
+  }
 
   this.traverseChildren(prop.expression, indent + 1, hasArgs);
 
