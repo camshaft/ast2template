@@ -46,7 +46,7 @@ describe('ast2template', function() {
     cases.forEach(function(test) {
       describe('should ' + test.title, function() {
         it('should compile', function() {
-          var fn = utils.compile(test);
+          var fn = utils.compile(test).render;
           try {
             utils.clone(fn.apply(null, test.args)).should.eql(test.output);
           } catch (e) {
@@ -82,7 +82,7 @@ describe('ast2template', function() {
   benchmark.enabled(function() {
     describe('benchmarks', function() {
       cases.forEach(function(test) {
-        var render = utils.compile(test).bind(null, noop, noop);
+        var render = utils.compile(test).render.bind(null, noop, noop);
 
         describe('should ' + test.title, function() {
           benchmark(test.iterations, 1, render);

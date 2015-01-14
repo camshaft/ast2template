@@ -15,7 +15,7 @@ describe('generated cases (' + seed + ')', function() {
   console.log('SEED=' + seed);
   generate(seed).forEach(function(test, i) {
     it('test ' + i, function(next) {
-      var fn = utils.compile(test);
+      var fn = utils.compile(test).render;
       try {
         var out = fn(utils.DOM, utils.$get);
         if (out && !Array.isArray(out)) out = [out];
