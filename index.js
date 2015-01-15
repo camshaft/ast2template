@@ -394,7 +394,10 @@ Template.prototype.visit_if = function(node, indent, statement) {
 };
 
 Template.prototype.visit_import = function(node, indent) {
-  this.prepend('import ' + node.expression + ';\n');
+  // for some reason our transform doesn't support wildcard
+  var matches = node.expression.match(/ *\* *as *([^ ]+) *from *(.+)/);
+  if (!matches) return this.prepend('import ' + node.expression + ';\n');
+  this.prepend('var ' + matches[1] + ' = require(' + matches[2] + ');\n');
 };
 
 Template.prototype.visit_js_comment = function(node, indent, index) {
