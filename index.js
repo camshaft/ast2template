@@ -480,6 +480,17 @@ Template.prototype.visit_prop_class = function(klass, indent) {
     if (expr.type !== 'ObjectExpression') return '(' + self.expr(ast) + ')';
 
     var exprs = expr.properties.map(function(prop) {
+      // convert identifiers
+      if (prop.key.type === 'Identifier') {
+        prop.key = {
+          type: 'Literal',
+          start: prop.key.start,
+          end: prop.key.end,
+          value: prop.key.name,
+          raw: JSON.stringify(prop.key.name)
+        };
+      }
+
       var cond = {
         type: 'ConditionalExpression',
         test: prop.value,
