@@ -205,7 +205,7 @@ Template.prototype.traverseSingleBufferedChild = function(children, indent, remo
   var i = 0;
 
   function statement(current) {
-    if (current) return 0;
+    if (current) return false;
     return i + 1 === children.length ?
       '; return ' :
       '; ' + sym + ' = ';
@@ -405,7 +405,10 @@ Template.prototype.visit_js_comment = function(node, indent, index) {
 Template.prototype.visit_props = function(props, indent, $index) {
   var keys = Object.keys(props);
 
-  if (this.opts.keyName && typeof $index !== 'undefined' && !~keys.indexOf(this.opts.keyName)) keys.push(KEY_PROP);
+  if (this.opts.keyName &&
+      typeof $index !== 'undefined' &&
+      $index(true) !== false &&
+      !~keys.indexOf(this.opts.keyName)) keys.push(KEY_PROP);
 
   if (!keys.length) return this.push(this.nullVar);
 
