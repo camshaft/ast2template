@@ -105,6 +105,7 @@ Template.prototype.toString = function() {
   this.push('function ' + noop + '(){}\n\n');
 
   this.push(commonJS + 'function ' + name + '(' + dom + ', ' + get + ', props, state, ' + yieldVar + ', params, query, forms, t, error) {\n');
+  this.push('var self = this;\n', 1);
   this.start(this.ast);
   this.push('};\n');
 
