@@ -446,10 +446,8 @@ Template.prototype.visit_prop_expression = function(prop, indent) {
 
   if (hasArgs) {
     var args = prop.args.replace('(', '').replace(')', '').split(/ *, */);
-    var getName = this.getVar + '__override';
-    args.push(getName);
     this.push('(function' + '(' + args.join(', ') + ') {\n');
-    this.push(this.getVar + ' = ' + getName + ' || ' + this.getVar + ';\n', indent + 2);
+    this.push(this.getVar + ' = typeof this === "function" ? this : ' + this.getVar + ';\n', indent + 2);
   }
 
   this.traverseChildren(prop.expression, indent + 1, hasArgs);
@@ -590,10 +588,10 @@ Template.prototype.visit_var = function(node, indent) {
 Template.prototype.visit_yield = function(node, indent, statement) {
   var name = node.name ? JSON.stringify(node.name) : '';
   var pre = statement ? statement() : '';
-  var args = node.args ?
+  var args = node.args && !/^ *\( *\)$/.test(node.args) ?
         node.args.replace(/^ *\(/, ', ') :
         ')';
-  this.push(pre + this.yieldVar + '(' + name + args, indent);
+  this.push(pre + this.expr(this.yieldVar + '(' + name + args, indent));
 };
 
 function invalidExpression(expr, line) {
