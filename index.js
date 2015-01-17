@@ -10,6 +10,7 @@ var eachFn = require('./lib/each');
 var memberExpression = require('./lib/member-expression');
 var safeExpression = require('./lib/safe-expression');
 var supportedProps = require('./lib/supported-props');
+var debug = require('debug')('ast2template');
 
 var KEY_PROP = '__ast2template_key_prop';
 
@@ -117,6 +118,8 @@ Template.prototype.toString = function() {
   delete this.buffer;
 
   // TODO verify there are no undeclared variables
+
+  debug('output', out);
 
   return out;
 };
