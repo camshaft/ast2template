@@ -32,7 +32,7 @@ Template.prototype.push = function(str, indent) {
 };
 
 Template.prototype.prepend = function(str) {
-  this.buffer.unshift(str);
+  this.prepends.push(str);
 };
 
 Template.prototype.indent = function(num) {
@@ -68,13 +68,12 @@ Template.prototype.constStr = function() {
 
 Template.prototype.prependUsedTags = function() {
   var self = this;
-  var prepend = ['/**\n * tag references\n */\n\n'];
+  this.prepend('/**\n * tag references\n */\n\n');
   Object.keys(this.usedTags).forEach(function(tag) {
     var name = self.usedTags[tag];
-    prepend.push(self.constStr() + ' ' + name + ' = ' + JSON.stringify(tag) + ';\n');
+    self.prepend(self.constStr() + ' ' + name + ' = ' + JSON.stringify(tag) + ';\n');
   });
-  prepend.push('\n\n');
-  self.buffer = prepend.concat(self.buffer);
+  this.prepend('\n\n');
 };
 
 Template.prototype.mapProp = function(key) {
@@ -89,6 +88,7 @@ Template.prototype.mapProp = function(key) {
 
 Template.prototype.toString = function() {
   this.buffer = [];
+  this.prepends = [];
   this.symCount = 0;
   this.usedTags = {};
 
@@ -112,7 +112,7 @@ Template.prototype.toString = function() {
 
   this.prependUsedTags();
 
-  var out = this.buffer.map(function(part) {
+  var out = this.prepends.concat(this.buffer).map(function(part) {
     return typeof part === 'function' ? part() : part;
   }).join('');
   delete this.buffer;
@@ -132,7 +132,7 @@ Template.prototype.pushEach = function() {
   var str = this.opts.isCommonJS !== false ?
     this.constStr() + ' ' + eachFn.name + ' = require(' + eachPath + ');\n\n' :
     eachFn.toString() + '\n\n';
-  this.buffer.unshift(str);
+  this.prepend(str);
 };
 
 Template.prototype.pushSafeExpression = function() {
@@ -141,7 +141,7 @@ Template.prototype.pushSafeExpression = function() {
   var str = this.opts.isCommonJS !== false ?
     this.constStr() + ' ' + safeExpression.name + ' = require(' + JSON.stringify(require.resolve('./lib/safe-expression')) + ');\n\n' :
     safeExpression.toString() + '\n\n';
-  this.buffer.unshift(str);
+  this.prepend(str);
 };
 
 Template.prototype.start = function(ast) {
