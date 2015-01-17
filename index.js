@@ -375,6 +375,12 @@ Template.prototype.visit_for = function(node, indent) {
   this.push('})' + this.selfCall, indent);
 };
 
+Template.prototype.visit_function = function(node, indent, statement) {
+  this.push('function ' + node.expression + '{\n', indent);
+  this.traverseChildren(node.children, indent + 2, true);
+  this.push('}')
+};
+
 Template.prototype.visit_if = function(node, indent, statement) {
   if (!node.children || !node.children.length) return;
 
