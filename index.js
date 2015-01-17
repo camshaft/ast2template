@@ -35,6 +35,10 @@ Template.prototype.prepend = function(str) {
   this.prepends.push(str);
 };
 
+Template.prototype.append = function(str) {
+  this.appends.push(str);
+};
+
 Template.prototype.indent = function(num) {
   for (var i = 0; i < num; i++) this.push('  ');
 };
@@ -89,6 +93,7 @@ Template.prototype.mapProp = function(key) {
 Template.prototype.toString = function() {
   this.buffer = [];
   this.prepends = [];
+  this.appends = [];
   this.symCount = 0;
   this.usedTags = {};
 
@@ -112,7 +117,7 @@ Template.prototype.toString = function() {
 
   this.prependUsedTags();
 
-  var out = this.prepends.concat(this.buffer).map(function(part) {
+  var out = this.prepends.concat(this.buffer).concat(this.appends).map(function(part) {
     return typeof part === 'function' ? part() : part;
   }).join('');
   delete this.buffer;
@@ -299,7 +304,7 @@ Template.prototype.visit_each = function(node, indent) {
 Template.prototype.visit_export = function(node, indent) {
   var expr = node.expression;
   if (!/\; *$/.test(expr)) expr += ';';
-  this.prepend('export ' + expr + '\n\n');
+  this.append('export ' + expr + '\n\n');
 };
 
 Template.prototype.visit_expression = function(node, indent) {
