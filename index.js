@@ -81,8 +81,8 @@ Template.prototype.prependUsedTags = function() {
 };
 
 Template.prototype.mapProp = function(key) {
-  if (this.opts.passThroughProps) return key;
   if (key === KEY_PROP) return this.opts.keyName;
+  if (this.opts.passThroughProps) return key;
   if (key.indexOf('data-') === 0 || key.indexOf('aria-') === 0) return key;
   if (key === 'class') return 'className';
   if (key === 'for') return 'htmlFor';
@@ -310,7 +310,7 @@ Template.prototype.visit_export = function(node, indent) {
 
 Template.prototype.visit_expression = function(node, indent) {
   var out = this.expr(node.expression, node.line);
-  if (!node.expression.buffer || out.indexOf('t(') === 0) return this.push(out, indent);
+  if (!node.buffer || out.indexOf('t(') === 0) return this.push(out, indent);
   this.pushSafeExpression();
   var expr = safeExpression.name + '(' + out +
         ', (process.env.NODE_ENV !== "production" ? [' +
