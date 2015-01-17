@@ -124,8 +124,10 @@ Template.prototype.toString = function() {
 Template.prototype.pushEach = function() {
   if (this._hasIncludedEach) return;
   this._hasIncludedEach = true;
+  var eachPath = JSON.stringify(require.resolve('./lib/each'));
+
   var str = this.opts.isCommonJS !== false ?
-    this.constStr() + ' ' + eachFn.name + ' = require(' + JSON.stringify(require.resolve('./lib/each')) + ');\n\n' :
+    this.constStr() + ' ' + eachFn.name + ' = require(' + eachPath + ');\n\n' :
     eachFn.toString() + '\n\n';
   this.buffer.unshift(str);
 };
@@ -557,10 +559,10 @@ Template.prototype.visit_translate = function(node, indent, statement) {
   var path = props.path;
   delete props.path;
 
-  var defaultValue = props['-'] ?
-    '(process.env.NODE_ENV !== "production" ? ' + props['-'].expression + ' : ' + this.nullVar + ')' :
+  var defaultValue = props['_'] ?
+    '(process.env.NODE_ENV !== "production" ? ' + props['_'].expression + ' : ' + this.nullVar + ')' :
     this.nullVar;
-  delete props['-'];
+  delete props['_'];
 
   this.push('t(' + this.expr(path.expression, path.line) + ', ', indent);
   this.visit_props(node.props || {}, indent + 1, statement);
