@@ -81,6 +81,7 @@ Template.prototype.prependUsedTags = function() {
 };
 
 Template.prototype.mapProp = function(key) {
+  if (this.opts.passThroughProps) return key;
   if (key === KEY_PROP) return this.opts.keyName;
   if (key.indexOf('data-') === 0 || key.indexOf('aria-') === 0) return key;
   if (key === 'class') return 'className';
