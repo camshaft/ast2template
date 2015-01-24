@@ -1,6 +1,6 @@
 {
   "name": "ast2template",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "description": "convert an ast to a template function",
   "main": "index.js",
   "scripts": {
