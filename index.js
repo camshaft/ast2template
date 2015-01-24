@@ -100,8 +100,8 @@ Template.prototype.toString = function() {
 
   var dom = this.domVar = 'DOM';
   var get = this.getVar = '$get';
+  var yieldVar = this.yieldVar = '$yield';
   var nullVar = this.nullVar = this.genSym('null');
-  var yieldVar = this.yieldVar = this.genSym('yield');
   var noop = this.noopVar = this.genSym('noop');
 
   this.selfCall = this.opts.selfCall || '()';
