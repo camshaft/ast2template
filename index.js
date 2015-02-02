@@ -250,6 +250,7 @@ Template.prototype.expr = function(str, line) {
   var get = this.getVar;
   var noop = this.noopVar;
   var nullVar = this.nullVar;
+  if (typeof str === 'boolean') return str;
 
   try {
     return memberExpression(str, get, noop, nullVar);
