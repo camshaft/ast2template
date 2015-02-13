@@ -22,6 +22,11 @@ exports.input = [
           },
           {
             type: 'expression',
+            expression: "arr[key + ''] + ''",
+            buffer: true
+          },
+          {
+            type: 'expression',
             expression: 'arr.length',
             buffer: true
           }
@@ -32,12 +37,12 @@ exports.input = [
 ];
 
 exports.output = [
-  { children: [ 1, 6 ], props: {}, tag: 'div' },
-  { children: [ 2, 6 ], props: {}, tag: 'div' },
-  { children: [ 3, 6 ], props: {}, tag: 'div' },
-  { children: [ 4, 6 ], props: {}, tag: 'div' },
-  { children: [ 5, 6 ], props: {}, tag: 'div' },
-  { children: [ 6, 6 ], props: {}, tag: 'div' }
+  { children: [ 1, '1', 6 ], props: {}, tag: 'div' },
+  { children: [ 2, '2', 6 ], props: {}, tag: 'div' },
+  { children: [ 3, '3', 6 ], props: {}, tag: 'div' },
+  { children: [ 4, '4', 6 ], props: {}, tag: 'div' },
+  { children: [ 5, '5', 6 ], props: {}, tag: 'div' },
+  { children: [ 6, '6', 6 ], props: {}, tag: 'div' }
 ];
 
 exports.iterations = 100;

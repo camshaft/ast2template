@@ -18,9 +18,10 @@ var utils = require('./utils');
 
 var root = __dirname;
 
-var cases = dir(root + '/cases').map(function(name) {
+var cases = dir(root + '/cases').reduce(function(acc, name) {
   var ast = require(root + '/cases/' + name);
-  return {
+  if (!ast.input) return acc;
+  acc.push({
     title: name.replace(/-/g, ' '),
     name: name,
     input: utils.flatten(ast.input),
@@ -30,8 +31,9 @@ var cases = dir(root + '/cases').map(function(name) {
       ast.DOM || utils.DOM,
       ast.$get || utils.$get
     ]
-  };
-});
+  });
+  return acc;
+}, []);
 
 function stat(name, length, prev) {
   var padding = new Array(22 - name.length);
@@ -47,6 +49,7 @@ describe('ast2template', function() {
       describe('should ' + test.title, function() {
         it('should compile', function() {
           var fn = utils.compile(test).render;
+
           try {
             utils.clone(fn.apply(null, test.args)).should.eql(test.output);
           } catch (e) {
@@ -83,10 +86,13 @@ describe('ast2template', function() {
     describe('benchmarks', function() {
       cases.forEach(function(test) {
         var render = utils.compile(test).render.bind(null, noop, noop);
-
-        describe('should ' + test.title, function() {
-          benchmark(test.iterations, 1, render);
-        });
+        try {
+          describe('should ' + test.title, function() {
+            benchmark(test.iterations, 1, render);
+          });
+        } catch (e) {
+          console.log(render.toString());
+        }
       });
     });
   });
