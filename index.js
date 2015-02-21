@@ -7,6 +7,7 @@ var tags = require('./lib/supported-tags');
 var createHash = require('crypto').createHash;
 var camel = require('to-camel-case');
 var eachFn = require('./lib/each');
+var mergeFn = require('./lib/merge');
 var memberExpression = require('./lib/member-expression');
 var safeExpression = require('./lib/safe-expression');
 var supportedProps = require('./lib/supported-props');
@@ -147,6 +148,17 @@ Template.prototype.pushSafeExpression = function() {
   var str = this.opts.isCommonJS !== false ?
     this.constStr() + ' ' + safeExpression.name + ' = require(' + JSON.stringify(require.resolve('./lib/safe-expression')) + ');\n\n' :
     safeExpression.toString() + '\n\n';
+  this.prepend(str);
+};
+
+Template.prototype.pushMerge = function() {
+  if (this._hasIncludedMerge) return;
+  this._hasIncludedMerge = true;
+  var mergePath = JSON.stringify(require.resolve('./lib/merge'));
+
+  var str = this.opts.isCommonJS !== false ?
+        this.constStr() + ' ' + mergeFn.name + ' = require(' + mergePath + ');\n\n' :
+        mergeFn.toString() + '\n\n';
   this.prepend(str);
 };
 
@@ -425,6 +437,19 @@ Template.prototype.visit_js_comment = function(node, indent, index) {
 };
 
 Template.prototype.visit_props = function(props, indent, $index) {
+  props = JSON.parse(JSON.stringify(props));
+  var mergeProp = props['`'] ? props['`'].expressions : [];
+  delete props['`'];
+
+  if (props.style) {
+    if (props.style.expressions.length === 1) {
+      props.style.expression = props.style.expressions[0];
+    } else {
+      mergeProp = mergeProp.concat(props.style.expressions);
+      delete props.style;
+    }
+  }
+
   var keys = Object.keys(props);
 
   if (this.opts.keyName &&
@@ -432,12 +457,13 @@ Template.prototype.visit_props = function(props, indent, $index) {
       $index(true) !== false &&
       !~keys.indexOf(this.opts.keyName)) keys.push(KEY_PROP);
 
-  if (!keys.length) return this.push(this.nullVar);
+  if (!keys.length && !mergeProp.length) return this.push(this.nullVar);
 
-  this.push('{\n');
+  if (mergeProp.length) this.pushMerge();
+  this.push(mergeProp.length ? mergeFn.name + '({\n' : '{\n');
   var self = this;
   keys.forEach(function(key, i) {
-    self.push('"' + self.mapProp(key) + '"', indent + 1);
+    self.push(JSON.stringify(self.mapProp(key)), indent + 1);
     self.push(': (');
 
     var prop = props[key];
@@ -454,7 +480,10 @@ Template.prototype.visit_props = function(props, indent, $index) {
     self.push('\n');
   });
 
-  this.push('}', indent);
+  var ending = mergeProp.length ?
+    '}, ' + mergeProp.join(', ') + ')' :
+    '}';
+  this.push(ending, indent);
 };
 
 Template.prototype.visit_prop_expression = function(prop, indent) {
