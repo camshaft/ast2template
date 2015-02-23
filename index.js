@@ -438,8 +438,8 @@ Template.prototype.visit_js_comment = function(node, indent, index) {
 
 Template.prototype.visit_props = function(props, indent, $index) {
   props = JSON.parse(JSON.stringify(props));
-  var mergeProp = props['`'] ? props['`'].expressions : [];
-  delete props['`'];
+  var mergeProp = props['&props'] ? props['&props'].expressions : [];
+  delete props['&props'];
 
   if (props.style) {
     if (props.style.expressions.length === 1) {

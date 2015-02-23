@@ -3,7 +3,7 @@ exports.input = [
     type: 'tag',
     name: 'div',
     props: {
-      '`': {
+      '&props': {
         expressions: [
           '{name: "foo"}',
           '{style: {color: "red"}}',
