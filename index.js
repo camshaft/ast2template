@@ -459,6 +459,10 @@ Template.prototype.visit_props = function(props, indent, $index) {
 
   if (!keys.length && !mergeProp.length) return this.push(this.nullVar);
 
+  mergeProp = mergeProp.map(function(prop) {
+    return this.expr(prop);
+  }.bind(this));
+
   if (mergeProp.length) this.pushMerge();
   this.push(mergeProp.length ? mergeFn.name + '({\n' : '{\n');
   var self = this;
