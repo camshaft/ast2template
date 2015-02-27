@@ -271,6 +271,20 @@ Template.prototype.expr = function(str, line) {
   }
 };
 
+Template.prototype.visit_block = function(node, indent) {
+  var args = node.args ? 'function ' + node.args + ' {' : '(';
+  this.push('self[' + JSON.stringify(node.name) + '] = ' + args + '\n', indent);
+  var i = node.args ? indent : indent - 1;
+  if (node.args) {
+    this.push('$get = this;\n', indent + 1);
+    this.push('return (\n', indent + 1);
+  }
+  this.traverseChildren(node.children, i);
+  this.push('\n');
+  if (node.args) this.push(');\n', indent + 1);
+  this.push(node.args ? '}' : ')', indent);
+};
+
 Template.prototype.visit_case = function(node, indent) {
   this.push('case ' + node.expression + ':\n', indent);
   this.push('return (\n', indent + 1);
