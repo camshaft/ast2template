@@ -110,6 +110,7 @@ Template.prototype.toString = function() {
   var name = this.opts.name || '';
 
   if (this.opts.root) this.push('var __ = require(' + JSON.stringify(this.opts.root) + ');\n');
+  else this.push('var __ = {};\n');
 
   this.push(this.constStr() + ' ' + nullVar + ' = null;\n\n');
   this.push('function ' + noop + '(){}\n\n');
