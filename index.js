@@ -109,7 +109,7 @@ Template.prototype.toString = function() {
   var commonJS = this.opts.isCommonJS !== false && this.opts.autoExport !== false ? 'exports.render = ' : '';
   var name = this.opts.name || '';
 
-  if (this.opts.root) this.push('var root = require(' + JSON.stringify(this.opts.root) + ');\n');
+  if (this.opts.root) this.push('var __ = require(' + JSON.stringify(this.opts.root) + ');\n');
 
   this.push(this.constStr() + ' ' + nullVar + ' = null;\n\n');
   this.push('function ' + noop + '(){}\n\n');
