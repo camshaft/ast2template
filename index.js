@@ -268,7 +268,7 @@ Template.prototype.expr = function(str, line) {
   if (typeof str === 'boolean') return str;
 
   try {
-    return memberExpression(str, get, noop, nullVar);
+    return memberExpression(str, get, noop, nullVar, this.opts.globals);
   } catch (e) {
     throw invalidExpression(str, line);
   }
