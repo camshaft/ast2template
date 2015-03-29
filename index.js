@@ -302,6 +302,10 @@ Template.prototype.visit_comment = function(node, indent, index) {
   this.push(pre + '/** <!--' + this.indentString(node.value || '', indent + 2) + '--> */', indent);
 };
 
+Template.prototype.visit_const = function(node, indent) {
+  this.prepend(this.constStr() + ' ' + node.expression + ';\n', indent);
+};
+
 Template.prototype.visit_default = function(node, indent) {
   this.push('default:\n', indent);
   this.push('return (\n', indent + 1);
