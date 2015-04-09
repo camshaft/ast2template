@@ -280,7 +280,8 @@ Template.prototype.visit_named_block = function(node, indent) {
   this.push('self[' + JSON.stringify(node.name) + '] = ' + args + '\n', indent);
   var i = node.args ? indent : indent - 1;
   if (node.args) {
-    this.push('$get = this;\n', indent + 1);
+    this.push('$get = this.g;\n', indent + 1);
+    this.push('t = this.t;\n', indent + 1);
     this.push('return (\n', indent + 1);
   }
   this.traverseChildren(node.children, i);
