@@ -280,7 +280,7 @@ Template.prototype.visit_named_block = function(node, indent) {
   this.push('self[' + JSON.stringify(node.name) + '] = ' + args + '\n', indent);
   var i = node.args ? indent : indent - 1;
   if (node.args) {
-    this.push('$get = this.g;\n', indent + 1);
+    this.push(this.getVar + ' = this.g;\n', indent + 2);
     this.push('t = this.t;\n', indent + 1);
     this.push('return (\n', indent + 1);
   }
@@ -521,7 +521,8 @@ Template.prototype.visit_prop_expression = function(prop, indent) {
   if (hasArgs) {
     var args = prop.args.replace('(', '').replace(')', '').split(/ *, */);
     this.push('(function' + '(' + args.join(', ') + ') {\n');
-    this.push(this.getVar + ' = typeof this === "function" ? this : ' + this.getVar + ';\n', indent + 2);
+    this.push(this.getVar + ' = this.g;\n', indent + 2);
+    this.push('t = this.t;\n', indent + 2);
   }
 
   this.traverseChildren(prop.expression, indent + 1, hasArgs);
