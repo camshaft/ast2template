@@ -381,6 +381,17 @@ Template.prototype.visit_elseif = function(node, indent, statement) {
   this.push('}', indent);
 };
 
+Template.prototype.visit_filter = function(node, indent) {
+  var resolve = this.opts.resolveFilter;
+  if (!resolveFilter) return console.error('Missing resolveFilter option in ast2template');
+  var as = node.attrs.as;
+  if (as) this.prepend('var ' + as + ' = ');
+  delete node.attrs.as;
+  this.prepend('require(' +
+      JSON.stringify(resolveFilter(node.name, node.content, node.attrs)) +
+      ');\n');
+};
+
 Template.prototype.visit_for = function(node, indent) {
   if (!node.children || !node.children.length) return this.push(this.nullVar, indent);
 
