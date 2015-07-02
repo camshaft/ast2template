@@ -485,10 +485,14 @@ Template.prototype.visit_props = function(props, indent, $index) {
   }
 
   var keys = Object.keys(props);
+  var isPropArray = Array.isArray(props);
+  var open = isPropArray ? '[' : '{';
+  var close = isPropArray ? ']' : '}';
 
   if (this.opts.keyName &&
       typeof $index !== 'undefined' &&
       $index(true) !== false &&
+      !isPropArray &&
       !~keys.indexOf(this.opts.keyName)) keys.push(KEY_PROP);
 
   if (!keys.length && !mergeProp.length) return this.push(this.nullVar);
@@ -498,11 +502,13 @@ Template.prototype.visit_props = function(props, indent, $index) {
   }.bind(this));
 
   if (mergeProp.length) this.pushMerge();
-  this.push(mergeProp.length ? mergeFn.name + '({\n' : '{\n');
+  this.push(mergeProp.length ? mergeFn.name + '(' + open + '\n' : open + '\n');
   var self = this;
   keys.forEach(function(key, i) {
-    self.push(JSON.stringify(self.mapProp(key)), indent + 1);
-    self.push(': (');
+    if (!isPropArray) self.push(JSON.stringify(self.mapProp(key)), indent + 1);
+    isPropArray ?
+      self.push('(') :
+      self.push(': (');
 
     var prop = props[key];
     if (key === KEY_PROP) {
@@ -519,8 +525,8 @@ Template.prototype.visit_props = function(props, indent, $index) {
   });
 
   var ending = mergeProp.length ?
-    '}, ' + mergeProp.join(', ') + ')' :
-    '}';
+    close + ', ' + mergeProp.join(', ') + ')' :
+    close;
   this.push(ending, indent);
 };
 
