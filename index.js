@@ -525,7 +525,11 @@ Template.prototype.visit_props = function(props, indent, $index) {
 };
 
 Template.prototype.visit_prop_expression = function(prop, indent) {
-  if (!Array.isArray(prop.expression)) return this.push(this.expr(prop.expression, prop.line));
+  if (Array.isArray(prop)) {
+    return this.push('[' + JSON.stringify(prop[0]) + ',' + this.expr(prop[1].expression) + ']');
+  }
+  var expression = prop.expressions || prop.expression;
+  if (!Array.isArray(expression)) return this.push(this.expr(expression, prop.line));
 
   var hasArgs = !!prop.args;
 
@@ -536,7 +540,7 @@ Template.prototype.visit_prop_expression = function(prop, indent) {
     this.push('t = this.t;\n', indent + 2);
   }
 
-  this.traverseChildren(prop.expression, indent + 1, hasArgs);
+  this.traverseChildren(expression, indent + 1, hasArgs);
 
   if (hasArgs) this.push('})', 1 + indent);
 };
