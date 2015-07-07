@@ -534,7 +534,7 @@ Template.prototype.visit_prop_expression = function(prop, indent) {
   if (Array.isArray(prop)) {
     return this.push('[' + JSON.stringify(prop[0]) + ',' + this.expr(prop[1].expression) + ']');
   }
-  var expression = prop.expressions || prop.expression;
+  var expression = prop.expression;
   if (!Array.isArray(expression)) return this.push(this.expr(expression, prop.line));
 
   var hasArgs = !!prop.args;
