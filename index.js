@@ -682,12 +682,14 @@ Template.prototype.visit_var = function(node, indent) {
 };
 
 Template.prototype.visit_yield = function(node, indent, statement) {
-  var name = node.name ? JSON.stringify(node.name) : '';
+  var name = node.name ? JSON.stringify(node.name) : this.nullVar;
+  var getters = ', ' + this.getVar + ', t';
   var pre = statement ? statement() : '';
   var args = node.args && !/^ *\( *\)$/.test(node.args) ?
         node.args.replace(/^ *\(/, ', ') :
         ')';
-  this.push(pre + this.expr(this.yieldVar + '(' + name + args, indent));
+  var expr = this.yieldVar + '(' + name + getters + args
+  this.push(pre + this.expr(expr, indent));
 };
 
 function invalidExpression(expr, line) {
