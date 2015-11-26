@@ -599,9 +599,9 @@ Template.prototype.visit_prop_class = function(klass, indent) {
           expression: cond
         }]
       });
-    }).join(' + " " + ');
+    }).join(') + " " + (');
 
-    return '(' + exprs + ')';
+    return '((' + exprs + '))';
   }).join(' + " " + ');
 
   this.push(out);
