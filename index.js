@@ -350,6 +350,10 @@ Template.prototype.visit_export = function(node, indent) {
 
 Template.prototype.visit_expression = function(node, indent) {
   var out = this.expr(node.expression, node.line);
+
+  // For now just let everything through
+  return this.push(out, indent);
+
   if (!node.buffer || out.indexOf('t(') === 0) return this.push(out, indent);
 
   this.pushSafeExpression();
