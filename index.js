@@ -410,6 +410,11 @@ Template.prototype.visit_filter = function(node, indent, statement) {
     return this.prepend('var __moduledoc = ' + JSON.stringify(docs) + ';\n');
   };
 
+  if (node.name == 'test') {
+    if (this.opts.renderTest) this.append(this.opts.renderTest(node.content, node.attrs));
+    return this.push(this.nullVar, indent);
+  }
+
   var resolveFilter = this.opts.resolveFilter;
   if (!resolveFilter) return console.error('Missing resolveFilter option in ast2template');
   var as = node.attrs.as;
