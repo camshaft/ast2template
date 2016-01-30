@@ -111,6 +111,7 @@ Template.prototype.toString = function() {
   var commonJS = opts.isCommonJS !== false && opts.autoExport !== false ? 'exports.render = ' : '';
   var name = opts.name || '';
 
+  this.push(function() {return 'var __module_name = ' + JSON.stringify(opts.name) + ';\n';});
   if (opts.root) this.push('var __ = require(' + JSON.stringify(opts.root) + ');\n');
   else this.push('var __ = {};\n');
 
