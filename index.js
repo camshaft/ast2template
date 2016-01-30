@@ -6,6 +6,7 @@ var acorn = require('acorn');
 var tags = require('./lib/supported-tags');
 var createHash = require('crypto').createHash;
 var camel = require('to-camel-case');
+var doctrine = require("doctrine");
 var eachFn = require('./lib/each');
 var mergeFn = require('./lib/merge');
 var memberExpression = require('./lib/member-expression');
@@ -105,17 +106,20 @@ Template.prototype.toString = function() {
   var nullVar = this.nullVar = this.genSym('null');
   var noop = this.noopVar = this.genSym('noop');
 
-  this.selfCall = this.opts.selfCall || '()';
-  var commonJS = this.opts.isCommonJS !== false && this.opts.autoExport !== false ? 'exports.render = ' : '';
-  var name = this.opts.name || '';
+  var opts = this.opts || {};
+  this.selfCall = opts.selfCall || '()';
+  var commonJS = opts.isCommonJS !== false && opts.autoExport !== false ? 'exports.render = ' : '';
+  var name = opts.name || '';
 
-  if (this.opts.root) this.push('var __ = require(' + JSON.stringify(this.opts.root) + ');\n');
+  if (opts.root) this.push('var __ = require(' + JSON.stringify(opts.root) + ');\n');
   else this.push('var __ = {};\n');
 
   this.push(this.constStr() + ' ' + nullVar + ' = null;\n\n');
   this.push('function ' + noop + '(){}\n\n');
 
-  this.push(commonJS + 'function ' + name + '(' + dom + ', ' + get + ', props, state, ' + yieldVar + ', params, query, forms, t, error) {\n');
+  this.push(commonJS + 'function ');
+  this.push(function(){return opts.name || ''});
+  this.push('(' + dom + ', ' + get + ', props, state, ' + yieldVar + ', params, query, forms, t, error) {\n');
   this.push('var self = this;\n', 1);
   this.start(this.ast);
   this.push('};\n');
@@ -346,7 +350,8 @@ Template.prototype.visit_export = function(node, indent) {
 
 Template.prototype.visit_expression = function(node, indent) {
   var out = this.expr(node.expression, node.line);
-  if (!node.expression.buffer || out.indexOf('t(') === 0) return this.push(out, indent);
+  if (!node.buffer || out.indexOf('t(') === 0) return this.push(out, indent);
+
   this.pushSafeExpression();
   var expr = safeExpression.name + '(' + out +
         ', (process.env.NODE_ENV !== "production" ? [' +
@@ -382,14 +387,36 @@ Template.prototype.visit_elseif = function(node, indent, statement) {
 };
 
 Template.prototype.visit_filter = function(node, indent) {
+  if (node.name == 'module') {
+    this.push(this.nullVar, indent);
+    return this.append('\n' + node.content + '\n');
+  }
+
+  if (node.name == 'js') {
+    this.push('\n');
+    return node.content.split('\n').forEach(function(line) {
+      this.push(line + '\n', indent);
+    }.bind(this));
+  }
+
+  if (node.name == 'doc') {
+    this.push(this.nullVar, indent);
+    var docs = doctrine.parse(node.content, {
+      sloppy: true
+    });
+    docs.tags.forEach(function(tag) {
+      if (tag.title == 'name') this.opts.name = tag.name;
+    }.bind(this));
+    return this.prepend('var __moduledoc = ' + JSON.stringify(docs) + ';\n');
+  };
+
   var resolveFilter = this.opts.resolveFilter;
   if (!resolveFilter) return console.error('Missing resolveFilter option in ast2template');
   var as = node.attrs.as;
-  if (as) this.prepend('var ' + as + ' = ');
   delete node.attrs.as;
-  this.prepend('require(' +
-      JSON.stringify(resolveFilter(node.name, node.content, node.attrs)) +
-      ');\n');
+  var expr = 'require(' + JSON.stringify(resolveFilter(node.name, node.content, node.attrs)) + ');\n';
+  if (!as) this.push(expr, indent);
+  else this.prepend('var ' + as + ' = ' + expr);
 };
 
 Template.prototype.visit_for = function(node, indent) {
@@ -632,7 +659,8 @@ Template.prototype.visit_tag = function(node, indent, statement) {
 
   if (children.length === 1) {
     this.push(',\n');
-    this.traverse(children[0], indent + 1);
+    if (children[0] && children[0].buffer) this.traverse(children[0], indent + 1);
+    else this.traverseChildren(children, indent + 1);
   }
   if (children.length > 1) {
     this.push(',\n');
