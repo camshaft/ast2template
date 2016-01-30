@@ -386,7 +386,7 @@ Template.prototype.visit_elseif = function(node, indent, statement) {
   this.push('}', indent);
 };
 
-Template.prototype.visit_filter = function(node, indent) {
+Template.prototype.visit_filter = function(node, indent, statement) {
   if (node.name == 'module') {
     this.push(this.nullVar, indent);
     return this.append('\n' + node.content + '\n');
@@ -415,7 +415,7 @@ Template.prototype.visit_filter = function(node, indent) {
   var as = node.attrs.as;
   delete node.attrs.as;
   var expr = 'require(' + JSON.stringify(resolveFilter(node.name, node.content, node.attrs)) + ');\n';
-  if (!as) this.push(expr, indent);
+  if (!as) this.push(statement() + expr, indent);
   else this.prepend('var ' + as + ' = ' + expr);
 };
 
