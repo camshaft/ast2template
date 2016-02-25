@@ -120,7 +120,7 @@ Template.prototype.toString = function() {
 
   this.push(commonJS + 'function ');
   this.push(function(){return opts.name || ''});
-  this.push('(' + dom + ', ' + get + ', props, state, ' + yieldVar + ', params, query, forms, t, error) {\n');
+  this.push('(' + dom + ', ' + get + ', props, state, ' + yieldVar + ', params, query, forms, t, canary, error) {\n');
   this.push('var self = this;\n', 1);
   this.start(this.ast);
   this.push('};\n');
@@ -285,8 +285,11 @@ Template.prototype.visit_named_block = function(node, indent) {
   this.push('self[' + JSON.stringify(node.name) + '] = ' + args + '\n', indent);
   var i = node.args ? indent : indent - 1;
   if (node.args) {
-    this.push(this.getVar + ' = this.g;\n', indent + 2);
-    this.push('t = this.t;\n', indent + 1);
+    var self = this.genSym('this');
+    this.push('var ' + self + ' = this;\n', indent + 1);
+    this.push('var ' + this.getVar + ' = ' + self + '.g;\n', indent + 1);
+    this.push('var t = ' + self + '.t;\n', indent + 1);
+    this.push('var canary = ' + self + '.c;\n', indent + 1);
     this.push('return (\n', indent + 1);
   }
   this.traverseChildren(node.children, i);
@@ -579,8 +582,11 @@ Template.prototype.visit_prop_expression = function(prop, indent) {
   if (hasArgs) {
     var args = prop.args.replace('(', '').replace(')', '').split(/ *, */);
     this.push('(function' + '(' + args.join(', ') + ') {\n');
-    this.push(this.getVar + ' = this.g;\n', indent + 2);
-    this.push('t = this.t;\n', indent + 2);
+    var self = this.genSym('this');
+    this.push('var ' + self + ' = this;\n', indent + 2);
+    this.push('var ' + this.getVar + ' = ' + self + '.g;\n', indent + 2);
+    this.push('var t = ' + self + '.t;\n', indent + 2);
+    this.push('var canary = ' + self + '.c;\n', indent + 2);
   }
 
   this.traverseChildren(expression, indent + 1, hasArgs);
