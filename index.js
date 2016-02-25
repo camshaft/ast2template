@@ -287,9 +287,9 @@ Template.prototype.visit_named_block = function(node, indent) {
   var i = node.args ? indent : indent - 1;
   if (node.args) {
     this.push('var __ast2template_yield_context = this;\n', indent + 1);
-    this.push('var ' + this.getVar + ' = __ast2template_yield_context.g;\n', indent + 1);
-    this.push('var t = __ast2template_yield_context.t;\n', indent + 1);
-    this.push('var canary = __ast2template_yield_context.c;\n', indent + 1);
+    this.push(this.getVar + ' = __ast2template_yield_context.g;\n', indent + 1);
+    this.push('t = __ast2template_yield_context.t;\n', indent + 1);
+    this.push('canary = __ast2template_yield_context.c;\n', indent + 1);
     this.push('return (\n', indent + 1);
   }
   this.traverseChildren(node.children, i);
@@ -583,9 +583,9 @@ Template.prototype.visit_prop_expression = function(prop, indent) {
     var args = prop.args.replace('(', '').replace(')', '').split(/ *, */);
     this.push('(function' + '(' + args.join(', ') + ') {\n');
     this.push('var __ast2template_yield_context = this;\n', indent + 2);
-    this.push('var ' + this.getVar + ' = __ast2template_yield_context.g;\n', indent + 2);
-    this.push('var t = __ast2template_yield_context.t;\n', indent + 2);
-    this.push('var canary = __ast2template_yield_context.c;\n', indent + 2);
+    this.push(this.getVar + ' = __ast2template_yield_context.g;\n', indent + 2);
+    this.push('t = __ast2template_yield_context.t;\n', indent + 2);
+    this.push('canary = __ast2template_yield_context.c;\n', indent + 2);
   }
 
   this.traverseChildren(expression, indent + 1, hasArgs);
