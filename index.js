@@ -267,7 +267,7 @@ Template.prototype.traverse = function(node, indent, num) {
   this[name](node, indent, num);
 };
 
-Template.prototype.expr = function(str, line) {
+Template.prototype.expr = function(str, line, indent) {
   var get = this.getVar;
   var noop = this.noopVar;
   var nullVar = this.nullVar;
@@ -275,7 +275,7 @@ Template.prototype.expr = function(str, line) {
   if (typeof str === 'boolean') return str;
 
   try {
-    return memberExpression(str, get, noop, nullVar, this.opts.globals);
+    return memberExpression(str, get, noop, nullVar, this.opts.globals, indent);
   } catch (e) {
     throw invalidExpression(str, line);
   }
@@ -402,9 +402,8 @@ Template.prototype.visit_filter = function(node, indent, statement) {
 
   if (node.name == 'js') {
     this.push('\n');
-    return node.content.split('\n').forEach(function(line) {
-      this.push(line + '\n', indent);
-    }.bind(this));
+    var expr = this.expr(node.content, node.line, indent);
+    return this.push(expr + '\n');
   }
 
   if (node.name == 'doc') {
